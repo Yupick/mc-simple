@@ -478,10 +478,73 @@ setup() {
     fi
     echo ""
 
-    print_message "$GREEN" "=== Configuración completada ==="
+    # Paso 6: Configurar entorno (local o servidor remoto)
+    print_message "$BLUE" "Configuración de Entorno:"
     echo ""
-    print_message "$BLUE" "Ya puedes iniciar el sistema con:"
-    echo "  $0 start"
+    print_message "$YELLOW" "¿Dónde vas a ejecutar el sistema?"
+    echo "  1) Servidor Local / Desarrollo (localhost)"
+    echo "  2) Servidor Remoto / Producción (con dominio público)"
+    echo ""
+    read -p "Selecciona [1-2] (default: 1): " env_type
+
+    env_type=${env_type:-1}
+    echo ""
+
+    case $env_type in
+        1)
+            print_message "$BLUE" "Configuración para desarrollo local..."
+            if [ ! -f "$FRONTEND_DIR/.env" ]; then
+                cat > "$FRONTEND_DIR/.env" << 'EOF'
+# Configuración para desarrollo local
+VITE_API_URL=http://localhost:3001/api
+VITE_WS_URL=http://localhost:3001
+EOF
+                print_message "$GREEN" "✓ Archivo .env creado para desarrollo local"
+            else
+                print_message "$YELLOW" "⚠ Archivo .env ya existe, no se modificó"
+            fi
+            echo ""
+            print_message "$GREEN" "=== Configuración completada ==="
+            echo ""
+            print_message "$BLUE" "Ya puedes iniciar el sistema con:"
+            echo "  $0 start"
+            ;;
+        2)
+            print_message "$BLUE" "Configuración para servidor remoto..."
+            echo ""
+            print_message "$YELLOW" "Ingresa el dominio del servidor (ej: mc.nightslayer.com.ar):"
+            read -p "Dominio: " remote_host
+
+            if [ -z "$remote_host" ]; then
+                print_message "$RED" "✗ Error: Debes ingresar un dominio"
+                return 1
+            fi
+
+            # Crear archivo .env para desarrollo en remoto (por si acaso)
+            cat > "$FRONTEND_DIR/.env" << EOF
+# Configuración para desarrollo en servidor remoto
+VITE_API_URL=http://${remote_host}:3001/api
+VITE_WS_URL=http://${remote_host}:3001
+EOF
+            print_message "$GREEN" "✓ Archivo .env creado con dominio: ${remote_host}"
+            echo ""
+            print_message "$GREEN" "=== Configuración completada ==="
+            echo ""
+            print_message "$BLUE" "IMPORTANTE: En servidor remoto, usa modo PRODUCCIÓN:"
+            echo ""
+            print_message "$YELLOW" "  1. Compilar frontend:"
+            echo "     $0 build"
+            echo ""
+            print_message "$YELLOW" "  2. Iniciar en producción:"
+            echo "     $0 start-prod"
+            echo ""
+            print_message "$BLUE" "El sistema estará disponible en: http://${remote_host}:3001"
+            ;;
+        *)
+            print_message "$RED" "✗ Opción inválida"
+            return 1
+            ;;
+    esac
     echo ""
 }
 
