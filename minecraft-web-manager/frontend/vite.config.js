@@ -22,6 +22,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    base: './', // Usar rutas relativas en build para evitar problemas con HTTP/HTTPS
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),

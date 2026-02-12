@@ -28,10 +28,14 @@ app.use(helmet({
       imgSrc: ["'self'", "data:", "https:"],
     }
   },
-  hsts: {
+  // Deshabilitar HSTS si no hay HTTPS configurado
+  hsts: process.env.NODE_ENV === 'production' && process.env.HTTPS === 'true' ? {
     maxAge: 31536000,
     includeSubDomains: true
-  }
+  } : false,
+  // Deshabilitar headers que requieren HTTPS
+  crossOriginOpenerPolicy: false,
+  crossOriginResourcePolicy: false,
 }));
 
 // CORS
