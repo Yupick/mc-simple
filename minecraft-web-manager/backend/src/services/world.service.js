@@ -111,7 +111,7 @@ class WorldService {
    */
   async createWorld(worldData) {
     try {
-      const { name, description, type, settings } = worldData;
+      const { name, description, type, icon, settings } = worldData;
 
       if (!name || !/^[a-zA-Z0-9_-]+$/.test(name)) {
         throw new Error('Nombre de mundo inválido. Solo letras, números, guiones y guiones bajos');
@@ -135,19 +135,18 @@ class WorldService {
       await fs.mkdir(path.join(worldPath, 'world_nether'), { recursive: true });
       await fs.mkdir(path.join(worldPath, 'world_the_end'), { recursive: true });
 
-      // Crear metadata.json
+      // Crear metadata.json (SOLO campos descriptivos, SIN settings)
       const metadata = {
         id: name,
-        name,
+        name: name,
         description: description || '',
         type: type || 'survival',
-        icon: this.getIconForType(type),
+        icon: icon || this.getIconForType(type),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         last_played: null,
         size_mb: 0,
         playerdata_count: 0,
-        settings: settings || {},
         custom_tags: []
       };
 
@@ -156,7 +155,7 @@ class WorldService {
         metadata
       );
 
-      // Copiar server.properties del mundo activo o crear uno nuevo
+      // Crear server.properties con las configuraciones del servidor
       let templateProps;
       try {
         const activeWorld = await this.getActiveWorld();
@@ -166,21 +165,24 @@ class WorldService {
         // Usar propiedades por defecto
         templateProps = {
           'level-name': 'world',
-          'gamemode': settings?.gamemode || 'survival',
-          'difficulty': settings?.difficulty || 'easy',
-          'pvp': settings?.pvp !== undefined ? settings.pvp : 'true',
+          'gamemode': 'survival',
+          'difficulty': 'easy',
+          'pvp': 'true',
           'max-players': '20',
           'allow-nether': 'true',
-          'spawn-protection': '16'
+          'allow-flight': 'false',
+          'spawn-protection': '16',
+          'view-distance': '10'
         };
       }
 
-      // Actualizar con settings específicos si se proporcionaron
-      if (settings) {
+      // Sobrescribir con settings específicos si se proporcionaron
+      if (settings && typeof settings === 'object') {
         Object.assign(templateProps, settings);
       }
 
-      templateProps['level-name'] = 'world'; // Siempre debe ser 'world'
+      // Asegurar que level-name siempre sea 'world'
+      templateProps['level-name'] = 'world';
 
       await this.configService.writeProperties(
         path.join(worldPath, 'server.properties'),
@@ -341,7 +343,6 @@ class WorldService {
       last_played: null,
       size_mb: 0,
       playerdata_count: 0,
-      settings: {},
       custom_tags: []
     };
 

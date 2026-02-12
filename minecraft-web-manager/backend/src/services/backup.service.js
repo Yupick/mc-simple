@@ -110,6 +110,133 @@ class BackupService {
       throw new Error(`Error al eliminar backup: ${error.message}`);
     }
   }
+
+  /**
+   * Restaurar backup
+   */
+  async restoreBackup(backupId, userId) {
+    try {
+      const stmt = db.prepare('SELECT * FROM backup_history WHERE id = ?');
+      const backup = stmt.get(backupId);
+
+      if (!backup) {
+        throw new Error('Backup no encontrado');
+      }
+
+      if (!await fs.access(backup.path).then(() => true).catch(() => false)) {
+        throw new Error('Archivo de backup no encontrado');
+      }
+
+      // Crear backup de seguridad antes de restaurar
+      await this.createBackup('full', userId);
+
+      // Ejecutar restauración
+      const result = await this.bashService.restoreBackup(backup.path);
+
+      return {
+        success: true,
+        message: 'Backup restaurado exitosamente. Reinicia el servidor para aplicar cambios.',
+        backup: backup.filename
+      };
+    } catch (error) {
+      throw new Error(`Error al restaurar backup: ${error.message}`);
+    }
+  }
+
+  /**
+   * Descargar backup
+   */
+  async getBackupPath(backupId) {
+    try {
+      const stmt = db.prepare('SELECT * FROM backup_history WHERE id = ?');
+      const backup = stmt.get(backupId);
+
+      if (!backup) {
+        throw new Error('Backup no encontrado');
+      }
+
+      if (!await fs.access(backup.path).then(() => true).catch(() => false)) {
+        throw new Error('Archivo de backup no encontrado');
+      }
+
+      return backup.path;
+    } catch (error) {
+      throw new Error(`Error al obtener backup: ${error.message}`);
+    }
+  }
+
+  /**
+   * Listar backups programados
+   */
+  async listScheduledBackups() {
+    try {
+      const stmt = db.prepare('SELECT * FROM scheduled_backups ORDER BY created_at DESC');
+      return stmt.all();
+    } catch (error) {
+      throw new Error(`Error al listar backups programados: ${error.message}`);
+    }
+  }
+
+  /**
+   * Crear backup programado
+   */
+  async createScheduledBackup(config) {
+    try {
+      const { name, type, cron_expression, enabled = true } = config;
+
+      if (!name || !type || !cron_expression) {
+        throw new Error('name, type y cron_expression son requeridos');
+      }
+
+      const stmt = db.prepare(`
+        INSERT INTO scheduled_backups (name, type, cron_expression, enabled)
+        VALUES (?, ?, ?, ?)
+      `);
+
+      const result = stmt.run(name, type, cron_expression, enabled ? 1 : 0);
+
+      return {
+        id: result.lastInsertRowid,
+        name,
+        type,
+        cron_expression,
+        enabled
+      };
+    } catch (error) {
+      throw new Error(`Error al crear backup programado: ${error.message}`);
+    }
+  }
+
+  /**
+   * Eliminar backup programado
+   */
+  async deleteScheduledBackup(id) {
+    try {
+      const stmt = db.prepare('DELETE FROM scheduled_backups WHERE id = ?');
+      stmt.run(id);
+
+      return { success: true, message: 'Backup programado eliminado' };
+    } catch (error) {
+      throw new Error(`Error al eliminar backup programado: ${error.message}`);
+    }
+  }
+
+  /**
+   * Actualizar backup programado
+   */
+  async updateScheduledBackup(id, data) {
+    try {
+      const { enabled } = data;
+
+      const stmt = db.prepare('UPDATE scheduled_backups SET enabled = ? WHERE id = ?');
+      stmt.run(enabled ? 1 : 0, id);
+
+      return { success: true, message: 'Backup programado actualizado' };
+    } catch (error) {
+      throw new Error(`Error al actualizar backup programado: ${error.message}`);
+    }
+  }
 }
+
 
 export default BackupService;

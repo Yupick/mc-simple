@@ -74,7 +74,16 @@ class WorldsController {
     try {
       const worldData = req.body;
 
-      const world = await worldService.createWorld(worldData);
+      // Separar campos entre metadata y properties
+      const { metadataUpdates, propertiesUpdates } = WorldsController._separateWorldFields(worldData);
+
+      // Combinar datos para crear el mundo
+      const worldCreateData = {
+        ...metadataUpdates,
+        settings: propertiesUpdates // Las properties se pasan como settings para createWorld
+      };
+
+      const world = await worldService.createWorld(worldCreateData);
 
       // Registrar en audit log
       AuditLog.logWorldAction(
@@ -101,7 +110,7 @@ class WorldsController {
 
   /**
    * PUT /api/worlds/:id
-   * Actualizar metadata del mundo
+   * Actualizar metadata y properties del mundo
    */
   static async update(req, res) {
     try {
@@ -112,21 +121,42 @@ class WorldsController {
       delete updates.id;
       delete updates.created_at;
 
-      const world = await worldService.updateWorldMetadata(id, updates);
+      // Separar campos entre metadata y server.properties
+      const { metadataUpdates, propertiesUpdates } = WorldsController._separateWorldFields(updates);
+
+      let updatedWorld = null;
+
+      // Actualizar metadata si hay cambios
+      if (Object.keys(metadataUpdates).length > 0) {
+        updatedWorld = await worldService.updateWorldMetadata(id, metadataUpdates);
+      }
+
+      // Actualizar server.properties si hay cambios
+      if (Object.keys(propertiesUpdates).length > 0) {
+        await worldService.updateWorldProperties(id, propertiesUpdates);
+      }
+
+      // Si no se actualizó metadata, obtener el mundo actual
+      if (!updatedWorld) {
+        updatedWorld = await worldService.getWorld(id);
+      }
 
       // Registrar en audit log
       AuditLog.logWorldAction(
         req.user.userId,
         'world_update',
         id,
-        { updates },
+        {
+          metadataUpdates: Object.keys(metadataUpdates),
+          propertiesUpdates: Object.keys(propertiesUpdates)
+        },
         req.ip
       );
 
       res.json({
         success: true,
         message: 'Mundo actualizado correctamente',
-        data: world
+        data: updatedWorld
       });
     } catch (error) {
       console.error('Error al actualizar mundo:', error);
@@ -135,6 +165,60 @@ class WorldsController {
         message: error.message
       });
     }
+  }
+
+  /**
+   * Separar campos entre metadata.json y server.properties
+   * @private
+   */
+  static _separateWorldFields(updates) {
+    // Campos que van a metadata.json (información descriptiva)
+    const metadataFieldsWhitelist = [
+      'name', 'description', 'type', 'icon', 'custom_tags'
+    ];
+
+    // Campos que van a server.properties (configuración del servidor)
+    // Mapeo: nombre frontend → nombre en server.properties
+    const propertiesMapping = {
+      'gamemode': 'gamemode',
+      'difficulty': 'difficulty',
+      'pvp': 'pvp',
+      'maxPlayers': 'max-players',
+      'max-players': 'max-players',
+      'allowFlight': 'allow-flight',
+      'allow-flight': 'allow-flight',
+      'allowNether': 'allow-nether',
+      'allow-nether': 'allow-nether',
+      'motd': 'motd',
+      'seed': 'level-seed',
+      'level-seed': 'level-seed',
+      'spawnProtection': 'spawn-protection',
+      'spawn-protection': 'spawn-protection',
+      'viewDistance': 'view-distance',
+      'view-distance': 'view-distance'
+    };
+
+    const metadataUpdates = {};
+    const propertiesUpdates = {};
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (metadataFieldsWhitelist.includes(key)) {
+        // Campo va a metadata.json
+        metadataUpdates[key] = value;
+      } else if (propertiesMapping[key]) {
+        // Campo va a server.properties
+        const propName = propertiesMapping[key];
+        // Convertir booleanos a string 'true'/'false' para server.properties
+        if (typeof value === 'boolean') {
+          propertiesUpdates[propName] = value.toString();
+        } else {
+          propertiesUpdates[propName] = value;
+        }
+      }
+      // Si no está en ninguna lista, se ignora silenciosamente
+    }
+
+    return { metadataUpdates, propertiesUpdates };
   }
 
   /**

@@ -7,6 +7,8 @@ import serverRoutes from './api/routes/server.routes.js';
 import worldsRoutes from './api/routes/worlds.routes.js';
 import pluginsRoutes from './api/routes/plugins.routes.js';
 import backupsRoutes from './api/routes/backups.routes.js';
+import configRoutes from './api/routes/config.routes.js';
+import systemRoutes from './api/routes/system.routes.js';
 import { errorMiddleware, notFoundMiddleware } from './api/middlewares/error.middleware.js';
 
 const app = express();
@@ -61,6 +63,8 @@ app.use('/api/server', serverRoutes);
 app.use('/api/worlds', worldsRoutes);
 app.use('/api/plugins', pluginsRoutes);
 app.use('/api/backups', backupsRoutes);
+app.use('/api/config', configRoutes);
+app.use('/api/system', systemRoutes);
 
 // Ruta de salud
 app.get('/health', (req, res) => {

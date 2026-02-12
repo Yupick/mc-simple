@@ -159,6 +159,13 @@ start_backend() {
 
     print_message "$BLUE" "Iniciando backend..."
 
+    # Verificar si el puerto 3001 está libre
+    if lsof -Pi :3001 -sTCP:LISTEN -t >/dev/null 2>&1; then
+        print_message "$YELLOW" "⚠ El puerto 3001 está en uso. Liberando puerto..."
+        lsof -ti:3001 | xargs kill -9 2>/dev/null
+        sleep 1
+    fi
+
     # Verificar configuración
     check_backend_config
     if [ $? -ne 0 ]; then
@@ -204,6 +211,13 @@ start_frontend() {
     fi
 
     print_message "$BLUE" "Iniciando frontend..."
+
+    # Verificar si el puerto 5173 está libre
+    if lsof -Pi :5173 -sTCP:LISTEN -t >/dev/null 2>&1; then
+        print_message "$YELLOW" "⚠ El puerto 5173 está en uso. Liberando puerto..."
+        lsof -ti:5173 | xargs kill -9 2>/dev/null
+        sleep 1
+    fi
 
     # Verificar que existan las dependencias
     if [ ! -d "$FRONTEND_DIR/node_modules" ]; then

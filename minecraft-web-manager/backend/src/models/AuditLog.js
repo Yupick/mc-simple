@@ -245,6 +245,20 @@ class AuditLog {
       ipAddress
     });
   }
+
+  /**
+   * Helper: Log de acción genérica
+   */
+  static logAction(userId, action, resourceType, resourceId, details, ipAddress) {
+    return this.create({
+      userId,
+      action,
+      resourceType,
+      resourceId,
+      details,
+      ipAddress
+    });
+  }
 }
 
 export default AuditLog;

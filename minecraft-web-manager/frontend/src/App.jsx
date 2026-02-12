@@ -7,6 +7,9 @@ import Dashboard from './components/layout/Dashboard';
 import DashboardHome from './pages/DashboardHome';
 import ServerPage from './pages/ServerPage';
 import WorldsPage from './pages/WorldsPage';
+import PluginsPage from './pages/PluginsPage';
+import BackupsPage from './pages/BackupsPage';
+import ConfigPage from './pages/ConfigPage';
 
 const queryClient = new QueryClient();
 
@@ -30,9 +33,9 @@ function App() {
               <Route path="dashboard" element={<DashboardHome />} />
               <Route path="servidor" element={<ServerPage />} />
               <Route path="mundos" element={<WorldsPage />} />
-              <Route path="plugins" element={<div className="text-text-primary">Plugins (Próximamente)</div>} />
-              <Route path="backups" element={<div className="text-text-primary">Backups (Próximamente)</div>} />
-              <Route path="configuracion" element={<div className="text-text-primary">Configuración (Próximamente)</div>} />
+              <Route path="plugins" element={<PluginsPage />} />
+              <Route path="backups" element={<BackupsPage />} />
+              <Route path="configuracion" element={<ConfigPage />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

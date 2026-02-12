@@ -14,7 +14,7 @@ class BashService {
     return new Promise((resolve, reject) => {
       const scriptPath = path.join(this.scriptsPath, scriptName);
 
-      const process = spawn(scriptPath, args, {
+      const childProcess = spawn(scriptPath, args, {
         cwd: options.cwd || this.scriptsPath,
         env: { ...process.env, ...options.env }
       });
@@ -22,19 +22,19 @@ class BashService {
       let stdout = '';
       let stderr = '';
 
-      process.stdout.on('data', (data) => {
+      childProcess.stdout.on('data', (data) => {
         const chunk = data.toString();
         stdout += chunk;
         if (options.onData) options.onData(chunk);
       });
 
-      process.stderr.on('data', (data) => {
+      childProcess.stderr.on('data', (data) => {
         const chunk = data.toString();
         stderr += chunk;
         if (options.onError) options.onError(chunk);
       });
 
-      process.on('close', (code) => {
+      childProcess.on('close', (code) => {
         if (code === 0) {
           resolve({ success: true, stdout, stderr, code });
         } else {
@@ -42,7 +42,7 @@ class BashService {
         }
       });
 
-      process.on('error', (error) => {
+      childProcess.on('error', (error) => {
         reject(error);
       });
     });
@@ -52,9 +52,36 @@ class BashService {
    * Ejecutar comando en el directorio del servidor
    */
   async serverCommand(command, ...args) {
-    const scriptPath = path.join(this.serverPath, 'manage-control.sh');
-    return this.executeScript(scriptPath, [command, ...args], {
-      cwd: this.serverPath
+    return new Promise((resolve, reject) => {
+      const scriptPath = path.join(this.serverPath, 'manage-control.sh');
+
+      const childProcess = spawn(scriptPath, [command, ...args], {
+        cwd: this.serverPath,
+        env: process.env
+      });
+
+      let stdout = '';
+      let stderr = '';
+
+      childProcess.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+
+      childProcess.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      childProcess.on('close', (code) => {
+        if (code === 0) {
+          resolve({ success: true, stdout, stderr, code });
+        } else {
+          reject(new Error(`Script exited with code ${code}: ${stderr}`));
+        }
+      });
+
+      childProcess.on('error', (error) => {
+        reject(error);
+      });
     });
   }
 

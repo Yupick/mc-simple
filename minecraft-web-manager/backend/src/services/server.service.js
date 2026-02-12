@@ -35,10 +35,11 @@ class ServerService {
             `ps -p ${pid} -o lstart --no-headers`
           );
           const startDate = new Date(startTime.trim());
-          const uptime = Date.now() - startDate.getTime();
+          const uptimeMs = Date.now() - startDate.getTime();
+          const uptimeSeconds = Math.floor(uptimeMs / 1000); // Convertir a segundos
 
           // Intentar obtener jugadores via RCON
-          let players = [];
+          let players = { online: 0, max: 20 };
           try {
             const rconResult = await this.bashService.rconCommand('list');
             const match = rconResult.stdout.match(/There are (\d+) of a max of (\d+) players online/);
@@ -52,15 +53,19 @@ class ServerService {
             // RCON no disponible o servidor no responde
           }
 
+          // Memoria: convertir de KB a bytes para el frontend
+          const rssKB = parseInt(rss);
+          const vszKB = parseInt(vsz);
+
           return {
             running: true,
             pid,
             memory: {
-              rss: Math.round(parseInt(rss) / 1024), // MB
-              vsz: Math.round(parseInt(vsz) / 1024), // MB
+              used: rssKB * 1024, // Convertir KB a bytes
+              max: vszKB * 1024    // Convertir KB a bytes
             },
             cpu: parseFloat(cpu),
-            uptime,
+            uptime: uptimeSeconds, // En segundos
             players
           };
         } catch (error) {
