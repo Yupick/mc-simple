@@ -1,0 +1,59 @@
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# PIDs
+*.pid
+.pids/
+
+# Build outputs
+dist/
+build/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Server files
+server/paper.jar
+server/cache/
+server/libraries/
+server/versions/
+server/world/
+server/world_nether/
+server/world_the_end/
+server/worlds/*/world/
+server/worlds/*/world_nether/
+server/worlds/*/world_the_end/
+server/plugins/**/*.jar
+server/server.pid
+
+# Backups (git large files)
+backups/*.tar.gz
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
