@@ -485,10 +485,79 @@ setup() {
     echo ""
 }
 
+# Función para build de producción
+build_production() {
+    print_message "$BLUE" "=== Build de Producción ==="
+    echo ""
+
+    # Build del frontend
+    print_message "$BLUE" "Compilando frontend..."
+    cd "$FRONTEND_DIR"
+
+    if [ ! -d "node_modules" ]; then
+        print_message "$YELLOW" "Instalando dependencias del frontend..."
+        npm install
+    fi
+
+    rm -rf dist
+    npm run build
+
+    if [ $? -ne 0 ]; then
+        print_message "$RED" "✗ Error al compilar frontend"
+        return 1
+    fi
+
+    print_message "$GREEN" "✓ Frontend compilado en: $FRONTEND_DIR/dist"
+    echo ""
+
+    print_message "$BLUE" "Verificando backend..."
+    if [ ! -d "$BACKEND_DIR/node_modules" ]; then
+        print_message "$YELLOW" "Instalando dependencias del backend..."
+        cd "$BACKEND_DIR"
+        npm install
+    fi
+
+    print_message "$GREEN" "✓ Build completado"
+    echo ""
+    print_message "$YELLOW" "Para iniciar en producción:"
+    echo "  NODE_ENV=production ./web-manager.sh start-prod"
+}
+
+# Función para iniciar en modo producción
+start_production() {
+    print_message "$BLUE" "=== Iniciando en Modo Producción ==="
+    echo ""
+
+    # Verificar que existe el build
+    if [ ! -d "$FRONTEND_DIR/dist" ]; then
+        print_message "$RED" "✗ No existe build del frontend"
+        print_message "$YELLOW" "  Ejecuta primero: $0 build"
+        return 1
+    fi
+
+    # Solo iniciar backend (que servirá el frontend estático)
+    export NODE_ENV=production
+    start_backend
+
+    echo ""
+    if is_running "$BACKEND_PID_FILE"; then
+        print_message "$GREEN" "=== Sistema en producción iniciado ==="
+        echo ""
+        print_message "$GREEN" "Accede al panel web en: http://mc.nightslayer.com.ar:3001"
+        print_message "$BLUE" "API disponible en: http://mc.nightslayer.com.ar:3001/api"
+    fi
+}
+
 # Script principal
 case "$1" in
     start)
         start
+        ;;
+    start-prod)
+        start_production
+        ;;
+    build)
+        build_production
         ;;
     stop)
         stop
@@ -506,19 +575,23 @@ case "$1" in
         setup
         ;;
     *)
-        echo "Uso: $0 {start|stop|restart|status|logs|setup}"
+        echo "Uso: $0 {start|start-prod|build|stop|restart|status|logs|setup}"
         echo ""
         echo "Comandos:"
-        echo "  setup    - Configuración inicial interactiva (primera vez)"
-        echo "  start    - Inicia el backend y el frontend"
-        echo "  stop     - Detiene el backend y el frontend"
-        echo "  restart  - Reinicia ambos servicios"
-        echo "  status   - Muestra el estado actual"
-        echo "  logs     - Muestra logs en tiempo real (backend|frontend)"
+        echo "  setup       - Configuración inicial interactiva (primera vez)"
+        echo "  start       - Inicia en modo desarrollo (backend + frontend separados)"
+        echo "  build       - Compila frontend para producción"
+        echo "  start-prod  - Inicia en modo producción (solo backend sirve todo)"
+        echo "  stop        - Detiene el backend y el frontend"
+        echo "  restart     - Reinicia ambos servicios"
+        echo "  status      - Muestra el estado actual"
+        echo "  logs        - Muestra logs en tiempo real (backend|frontend)"
         echo ""
         echo "Ejemplos:"
         echo "  $0 setup              # Primera vez: configuración completa"
-        echo "  $0 start              # Iniciar el sistema"
+        echo "  $0 start              # Iniciar en desarrollo"
+        echo "  $0 build              # Compilar para producción"
+        echo "  $0 start-prod         # Iniciar en producción"
         echo "  $0 status             # Ver estado"
         echo "  $0 logs backend       # Ver logs del backend"
         exit 1
