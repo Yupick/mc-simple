@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block title %}Consola del Servidor{% endblock %}
+
+{% block styles %}
+<style>
+    /* Estilos para terminal-style console */
+    .console-container {
+        background: #1a1a1a;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .console-header {
+        background: #2d2d2d;
+        padding: 12px 20px;
+        border-bottom: 2px solid #444;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .console-output {
+        background: #0a0a0a;
+        padding: 20px;
+        height: 500px;
+        overflow-y: auto;
+        font-family: 'Courier New', monospace;
+        font-size: 14px;
+        color: #00ff00;
+    }
+    
+    .console-output::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    .console-output::-webkit-scrollbar-track {
+        background: #1a1a1a;
+    }
+    
+    .console-output::-webkit-scrollbar-thumb {
+        background: #444;
+        border-radius: 4px;
+    }
+    
+    .console-line {
+        margin-bottom: 8px;
+        word-wrap: break-word;
+    }
+    
+    .console-line.command {
+        color: #00ffff;
+    }
+    
+    .console-line.response {
+        color: #00ff00;
+    }
+    
+    .console-line.error {
+        color: #ff5555;
+    }
+    
+    .console-line.system {
+        color: #888;
+    }
+    
+    .console-input-container {
+        background: #2d2d2d;
+        padding: 15px 20px;
+        border-top: 2px solid #444;
+        display: flex;
+        gap: 10px;
+    }
+    
+    .console-input {
+        flex: 1;
+        background: #0a0a0a;
+        border: 1px solid #444;
+        color: #00ff00;
+        padding: 10px 15px;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        font-size: 14px;
+    }
+    
+    .console-input:focus {
+        outline: none;
+        border-color: #00ff00;
+    }
+    
+    .command-button {
+        padding: 8px 16px;
+        background: #3d3d3d;
+        border: 1px solid #555;
+        color: #fff;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 13px;
+    }
+    
+    .command-button:hover {
+        background: #4d4d4d;
+        border-color: #00ff00;
+    }
+    
+    .command-button:active {
+        transform: scale(0.98);
+    }
+    
+    .command-category {
+        margin-bottom: 20px;
+    }
+    
+    .command-category h4 {
+        color: #00ffff;
+        margin-bottom: 10px;
+        font-size: 14px;
+        font-weight: 600;
+    }
+    
+    .command-buttons-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6" x-data="consoleComponent()">
+    
+    <!-- Header -->
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">🖥️ Consola del Servidor</h1>
+        <p class="text-gray-600">Ejecuta comandos directamente en el servidor Minecraft via RCON</p>
+    </div>
+
+    <!-- Estado de conexión -->
+    <div class="mb-4">
+        <div x-show="!available" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            ⚠️ El servidor debe estar corriendo para usar la consola
+        </div>
+        <div x-show="available && loading" class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded">
+            ⏳ Ejecutando comando...
+        </div>
+    </div>
+
+    <!-- Console Terminal -->
+    <div class="console-container shadow-lg mb-6">
+        <div class="console-header">
+            <div class="flex items-center gap-3">
+                <span class="text-green-400 font-mono">●</span>
+                <span class="text-gray-300 font-semibold">Terminal RCON</span>
+            </div>
+            <button @click="clearConsole()" class="text-gray-400 hover:text-white transition">
+                🗑️ Limpiar
+            </button>
+        </div>
+        
+        <div class="console-output" x-ref="consoleOutput">
+            <template x-for="(line, index) in consoleLines" :key="index">
+                <div class="console-line" :class="line.type" x-text="line.text"></div>
+            </template>
+            
+            <div x-show="consoleLines.length === 0" class="console-line system">
+                ~ Consola RCON lista. Escribe un comando o usa los botones predefinidos.
+            </div>
+        </div>
+        
+        <div class="console-input-container">
+            <span class="text-green-400 font-mono text-lg">$</span>
+            <input 
+                type="text" 
+                x-model="currentCommand"
+                @keydown.enter="executeCommand()"
+                @keydown.up="historyUp()"
+                @keydown.down="historyDown()"
+                :disabled="!available || loading"
+                placeholder="Escribe un comando (sin / inicial)..."
+                class="console-input"
+                x-ref="commandInput"
+            />
+            <button 
+                @click="executeCommand()"
+                :disabled="!available || loading || !currentCommand.trim()"
+                class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+                Ejecutar
+            </button>
+        </div>
+    </div>
+
+    <!-- Comandos Predefinidos -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-bold text-gray-800 mb-4">📋 Comandos Predefinidos</h2>
+        
+        <template x-for="(commands, category) in predefinedCommands" :key="category">
+            <div class="command-category">
+                <h4 x-text="category"></h4>
+                <div class="command-buttons-grid">
+                    <template x-for="cmd in commands" :key="cmd.command">
+                        <button 
+                            @click="executePreset(cmd.command)"
+                            :disabled="!available || loading"
+                            class="command-button"
+                            :title="cmd.description"
+                        >
+                            <div class="font-semibold" x-text="cmd.label"></div>
+                            <div class="text-xs text-gray-400 mt-1" x-text="cmd.command"></div>
+                        </button>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- Ayuda rápida -->
+    <div class="mt-6 bg-gray-100 rounded-lg p-4 text-sm text-gray-700">
+        <h3 class="font-bold mb-2">💡 Consejos:</h3>
+        <ul class="list-disc list-inside space-y-1">
+            <li>No es necesario usar <code>/</code> al inicio del comando (se agrega automáticamente)</li>
+            <li>Usa <kbd>↑</kbd> y <kbd>↓</kbd> para navegar por el historial de comandos</li>
+            <li>Puedes escribir comandos personalizados o usar los botones predefinidos</li>
+            <li>El servidor debe estar corriendo para ejecutar comandos</li>
+        </ul>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/components/console.js"></script>
+{% endblock %}

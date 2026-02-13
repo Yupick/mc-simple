@@ -23,11 +23,22 @@ class WebSocketService:
         
         async def stream_logs():
             try:
+                # Verificar que el archivo existe
+                if not log_file.exists():
+                    await self.sio.emit('log-error', {
+                        'error': f'Archivo de logs no encontrado: {log_file}'
+                    }, room=sid)
+                    return
+                
                 # Usar tail -f para seguir el archivo
                 process = await asyncio.create_subprocess_exec(
                     "tail", "-f", "-n", "100", str(log_file),
-                    stdout=asyncio.subprocess.PIPE
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
                 )
+                
+                # Enviar confirmación de conexión
+                await self.sio.emit('log-connected', {'message': 'Conectado a logs'}, room=sid)
                 
                 async for line in process.stdout:
                     log_line = line.decode().strip()
@@ -35,6 +46,7 @@ class WebSocketService:
                 
             except Exception as e:
                 print(f"Error en stream de logs: {e}")
+                await self.sio.emit('log-error', {'error': str(e)}, room=sid)
         
         task = asyncio.create_task(stream_logs())
         self.log_tasks[sid] = task

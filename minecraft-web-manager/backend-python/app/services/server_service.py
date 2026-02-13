@@ -1,4 +1,5 @@
 """Servicio para control del servidor Minecraft"""
+import json
 import psutil
 from pathlib import Path
 from typing import Dict, Any, Optional
@@ -36,6 +37,41 @@ class ServerService:
                 pass
         return False
     
+    def get_version(self) -> Dict[str, str]:
+        """
+        Obtener versión de Paper del servidor
+        
+        Returns:
+            Dict con paper, minecraft, full
+        """
+        version_file = self.server_path / "version_history.json"
+        
+        try:
+            if version_file.exists():
+                with open(version_file, 'r') as f:
+                    data = json.load(f)
+                    current_version = data.get('currentVersion', '')
+                    
+                    # Parsear "1.21.8-60-29c8822 (MC: 1.21.8)"
+                    if current_version:
+                        # Extraer versión Paper
+                        paper_version = current_version.split('-')[0] if '-' in current_version else current_version.split()[0]
+                        
+                        # Extraer versión Minecraft
+                        mc_version = ''
+                        if 'MC:' in current_version:
+                            mc_version = current_version.split('MC:')[1].strip().rstrip(')')
+                        
+                        return {
+                            "paper": paper_version,
+                            "minecraft": mc_version,
+                            "full": current_version
+                        }
+        except Exception as e:
+            print(f"Error leyendo versión: {e}")
+        
+        return {"paper": "Desconocida", "minecraft": "Desconocida", "full": "Desconocida"}
+    
     async def get_status(self) -> Dict[str, Any]:
         """
         Obtener estado completo del servidor
@@ -52,7 +88,8 @@ class ServerService:
             "memory": {"used": 0, "max": 0},
             "cpu": 0.0,
             "uptime": 0,
-            "players": {"online": 0, "max": 20}
+            "players": {"online": 0, "max": 20},
+            "version": self.get_version()
         }
         
         if running and pid:
