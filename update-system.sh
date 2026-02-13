@@ -13,6 +13,7 @@ NC='\033[0m' # No Color
 # Directorios
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WEB_MANAGER_DIR="$SCRIPT_DIR/minecraft-web-manager"
+PYTHON_BACKEND_DIR="$WEB_MANAGER_DIR/backend-python"
 
 # Función para imprimir mensajes
 print_message() {
@@ -102,67 +103,53 @@ stop_system() {
     print_message "$BLUE" "=== Deteniendo Sistema ==="
     echo ""
 
-    if [ -f "$WEB_MANAGER_DIR/web-manager.sh" ]; then
+    if [ -f "$WEB_MANAGER_DIR/python-manager.sh" ]; then
         cd "$WEB_MANAGER_DIR"
-        ./web-manager.sh stop
+        ./python-manager.sh stop
         echo ""
     else
-        print_message "$YELLOW" "⚠ Script web-manager.sh no encontrado"
+        print_message "$YELLOW" "⚠ Script python-manager.sh no encontrado"
     fi
 }
 
-# Función para actualizar dependencias y rebuild
-update_and_rebuild() {
-    print_message "$BLUE" "=== Actualizando Dependencias y Rebuild ==="
+# Función para actualizar dependencias Python
+update_dependencies() {
+    print_message "$BLUE" "=== Actualizando Dependencias Python ==="
     echo ""
 
-    if [ ! -f "$WEB_MANAGER_DIR/web-manager.sh" ]; then
-        print_message "$YELLOW" "⚠ Script web-manager.sh no encontrado, omitiendo rebuild"
+    if [ ! -f "$WEB_MANAGER_DIR/python-manager.sh" ]; then
+        print_message "$YELLOW" "⚠ Script python-manager.sh no encontrado, omitiendo actualización"
         return 0
     fi
 
-    cd "$WEB_MANAGER_DIR"
+    cd "$PYTHON_BACKEND_DIR"
 
-    # Instalar/actualizar dependencias del backend
-    print_message "$BLUE" "Actualizando dependencias del backend..."
-    if [ -d "backend" ]; then
-        cd backend
-        npm install
+    # Verificar que existe venv
+    if [ ! -d "venv" ]; then
+        print_message "$YELLOW" "⚠ Entorno virtual no encontrado"
+        print_message "$BLUE" "Ejecutando setup..."
+        cd "$WEB_MANAGER_DIR"
+        ./python-manager.sh setup
         if [ $? -ne 0 ]; then
-            print_message "$YELLOW" "⚠ Error al actualizar dependencias del backend (no crítico)"
-        else
-            print_message "$GREEN" "✓ Dependencias del backend actualizadas"
+            print_message "$RED" "✗ Error en setup del entorno Python"
+            return 1
         fi
-        cd ..
+        return 0
     fi
 
-    echo ""
-
-    # Instalar/actualizar dependencias del frontend y rebuild
-    print_message "$BLUE" "Actualizando dependencias del frontend y recompilando..."
-    if [ -d "frontend" ]; then
-        cd frontend
-        npm install
-        if [ $? -ne 0 ]; then
-            print_message "$YELLOW" "⚠ Error al actualizar dependencias del frontend"
-        else
-            print_message "$GREEN" "✓ Dependencias del frontend actualizadas"
-        fi
-        cd ..
-    fi
-
-    echo ""
-
-    # Rebuild para producción
-    print_message "$BLUE" "Recompilando frontend para producción..."
-    ./web-manager.sh build
+    # Actualizar dependencias Python
+    print_message "$BLUE" "Actualizando dependencias Python..."
+    venv/bin/pip install --upgrade pip
+    venv/bin/pip install -r requirements.txt --upgrade
 
     if [ $? -ne 0 ]; then
-        print_message "$RED" "✗ Error al recompilar el frontend"
-        return 1
+        print_message "$YELLOW" "⚠ Error al actualizar dependencias Python (no crítico)"
+    else
+        print_message "$GREEN" "✓ Dependencias Python actualizadas"
     fi
 
-    print_message "$GREEN" "✓ Frontend recompilado correctamente"
+    echo ""
+    print_message "$GREEN" "✓ Sistema Python actualizado (no requiere compilación)"
     return 0
 }
 
@@ -171,42 +158,21 @@ start_system() {
     print_message "$BLUE" "=== Reiniciando Sistema ==="
     echo ""
 
-    if [ ! -f "$WEB_MANAGER_DIR/web-manager.sh" ]; then
-        print_message "$YELLOW" "⚠ Script web-manager.sh no encontrado"
+    if [ ! -f "$WEB_MANAGER_DIR/python-manager.sh" ]; then
+        print_message "$YELLOW" "⚠ Script python-manager.sh no encontrado"
         return 1
     fi
 
     cd "$WEB_MANAGER_DIR"
 
-    # Preguntar modo
-    print_message "$YELLOW" "¿Cómo deseas iniciar el sistema?"
-    echo "  1) Producción (recomendado para servidor)"
-    echo "  2) Desarrollo (para trabajar localmente)"
-    echo ""
-    read -p "Selecciona [1-2] (default: 1): " mode
-
-    mode=${mode:-1}
-
-    echo ""
-
-    case $mode in
-        1)
-            print_message "$BLUE" "Iniciando en modo producción..."
-            ./web-manager.sh start-prod
-            ;;
-        2)
-            print_message "$BLUE" "Iniciando en modo desarrollo..."
-            ./web-manager.sh start
-            ;;
-        *)
-            print_message "$RED" "✗ Opción inválida"
-            return 1
-            ;;
-    esac
+    print_message "$BLUE" "Iniciando servidor Python FastAPI..."
+    ./python-manager.sh start
 
     if [ $? -eq 0 ]; then
         echo ""
         print_message "$GREEN" "✓ Sistema iniciado correctamente"
+        print_message "$BLUE" "  URL: http://localhost:8000"
+        print_message "$BLUE" "  Docs: http://localhost:8000/docs"
         return 0
     else
         print_message "$RED" "✗ Error al iniciar el sistema"
@@ -234,11 +200,11 @@ main() {
             print_message "$BLUE" "No hay nada que hacer. ¡Hasta luego!"
             exit 0
         else
-            # Solo rebuild sin actualizar código
-            print_message "$BLUE" "Procediendo solo con rebuild..."
+            # Solo actualizar dependencias sin actualizar código
+            print_message "$BLUE" "Procediendo solo con actualización de dependencias..."
             echo ""
             stop_system
-            update_and_rebuild
+            update_dependencies
             start_system
             exit 0
         fi
@@ -266,13 +232,13 @@ main() {
     # Detener sistema
     stop_system
 
-    # Actualizar dependencias y rebuild
-    if ! update_and_rebuild; then
-        print_message "$RED" "✗ Error durante el rebuild"
-        print_message "$YELLOW" "El código fue actualizado pero el rebuild falló"
+    # Actualizar dependencias Python
+    if ! update_dependencies; then
+        print_message "$RED" "✗ Error actualizando dependencias"
+        print_message "$YELLOW" "El código fue actualizado pero la actualización de dependencias falló"
         print_message "$YELLOW" "Revisa los errores e intenta manualmente con:"
         echo "  cd minecraft-web-manager"
-        echo "  ./web-manager.sh build"
+        echo "  ./python-manager.sh setup"
         exit 1
     fi
 

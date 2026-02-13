@@ -23,9 +23,57 @@ print_error() { echo -e "${RED}[✗]${NC} $1"; }
 check_dependencies() {
     if ! command -v mcrcon &> /dev/null; then
         print_error "mcrcon no está instalado"
-        print_info "Para instalar: sudo apt update && sudo apt install -y mcrcon"
-        print_info "O descarga desde: https://github.com/Tiiffi/mcrcon"
-        exit 1
+        print_info "Intentando compilar e instalar desde GitHub..."
+        echo ""
+        
+        # Verificar dependencias de compilación
+        if ! command -v gcc &> /dev/null || ! command -v make &> /dev/null; then
+            print_error "gcc y make son necesarios para compilar mcrcon"
+            print_info "Instala con: sudo apt update && sudo apt install -y build-essential"
+            exit 1
+        fi
+        
+        # Crear directorio temporal
+        local temp_dir=$(mktemp -d)
+        cd "$temp_dir"
+        
+        # Clonar repositorio
+        print_info "Clonando repositorio mcrcon..."
+        git clone https://github.com/Tiiffi/mcrcon.git
+        
+        if [ $? -ne 0 ]; then
+            print_error "Error al clonar el repositorio"
+            rm -rf "$temp_dir"
+            exit 1
+        fi
+        
+        # Compilar
+        cd mcrcon
+        print_info "Compilando mcrcon..."
+        make
+        
+        if [ $? -ne 0 ]; then
+            print_error "Error al compilar mcrcon"
+            rm -rf "$temp_dir"
+            exit 1
+        fi
+        
+        # Instalar
+        print_info "Instalando mcrcon (requiere sudo)..."
+        sudo make install
+        
+        if [ $? -ne 0 ]; then
+            print_error "Error al instalar mcrcon"
+            rm -rf "$temp_dir"
+            exit 1
+        fi
+        
+        # Limpiar
+        cd -
+        rm -rf "$temp_dir"
+        
+        print_success "mcrcon instalado correctamente"
+        echo ""
     fi
 }
 
