@@ -23,6 +23,12 @@
     <div class="bg-white rounded-lg shadow p-6">
         <div class="flex items-center justify-between mb-6">
             <h3 class="text-xl font-bold text-gray-900">Todos los Mundos</h3>
+            <button 
+                @click="openCreateModal()"
+                class="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors">
+                <i data-lucide="plus" class="w-5 h-5"></i>
+                Crear Nuevo Mundo
+            </button>
         </div>
         
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -60,6 +66,189 @@
                     </div>
                 </div>
             </template>
+        </div>
+    </div>
+
+    <!-- Modal Crear Mundo -->
+    <div x-show="createModal.open" 
+         @click.self="closeCreateModal()"
+         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+         x-transition>
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-2xl font-bold text-gray-900">Crear Nuevo Mundo</h3>
+                        <p class="text-sm text-gray-600 mt-1">Paso <span x-text="createModal.step"></span> de 3</p>
+                    </div>
+                    <button @click="closeCreateModal()" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+
+                <!-- Progress bar -->
+                <div class="flex gap-2 mb-6">
+                    <div :class="createModal.step >= 1 ? 'bg-primary-600' : 'bg-gray-200'" class="flex-1 h-2 rounded-full transition-colors"></div>
+                    <div :class="createModal.step >= 2 ? 'bg-primary-600' : 'bg-gray-200'" class="flex-1 h-2 rounded-full transition-colors"></div>
+                    <div :class="createModal.step >= 3 ? 'bg-primary-600' : 'bg-gray-200'" class="flex-1 h-2 rounded-full transition-colors"></div>
+                </div>
+
+                <!-- Error -->
+                <div x-show="createModal.error" 
+                     class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700"
+                     x-text="createModal.error"></div>
+
+                <!-- Step 1: Información básica -->
+                <div x-show="createModal.step === 1" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Nombre del Mundo *</label>
+                        <input 
+                            type="text" 
+                            x-model="createModal.form.id"
+                            @input="createModal.form.name = createModal.form.id"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            placeholder="mundo-survival">
+                        <p class="text-xs text-gray-500 mt-1">Solo letras, números, guiones (-) y guiones bajos (_)</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Descripción</label>
+                        <textarea 
+                            x-model="createModal.form.description"
+                            rows="3"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            placeholder="Describe tu mundo..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Step 2: Tipo de mundo -->
+                <div x-show="createModal.step === 2" class="space-y-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-3">Selecciona el tipo de mundo</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <template x-for="type in worldTypes" :key="type.value">
+                            <button 
+                                type="button"
+                                @click="selectWorldType(type)"
+                                :class="createModal.form.type === type.value ? 'border-primary-500 bg-primary-50' : 'border-gray-200 bg-white hover:border-gray-300'"
+                                class="flex items-start gap-3 p-4 rounded-lg border-2 transition-all text-left">
+                                <span class="text-3xl" x-text="type.icon"></span>
+                                <div class="flex-1">
+                                    <div class="font-semibold text-gray-900" x-text="type.label"></div>
+                                    <div class="text-xs text-gray-600 mt-1" x-text="type.desc"></div>
+                                </div>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Step 3: Configuración -->
+                <div x-show="createModal.step === 3" class="space-y-6 max-h-96 overflow-y-auto pr-2">
+                    <!-- Gameplay -->
+                    <div class="space-y-4">
+                        <h4 class="font-semibold text-gray-900 border-b pb-2">Gameplay</h4>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Modo de Juego</label>
+                                <select x-model="createModal.form.settings.gamemode" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                    <option value="survival">survival</option>
+                                    <option value="creative">creative</option>
+                                    <option value="adventure">adventure</option>
+                                    <option value="spectator">spectator</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Dificultad</label>
+                                <select x-model="createModal.form.settings.difficulty" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                                    <option value="peaceful">peaceful</option>
+                                    <option value="easy">easy</option>
+                                    <option value="normal">normal</option>
+                                    <option value="hard">hard</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <label class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                                <input type="checkbox" x-model="createModal.form.settings.pvp" class="w-4 h-4">
+                                <span class="text-sm font-medium text-gray-700">PvP</span>
+                            </label>
+                            <label class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                                <input type="checkbox" x-model="createModal.form.settings['allow-flight']" class="w-4 h-4">
+                                <span class="text-sm font-medium text-gray-700">Permitir volar</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Servidor -->
+                    <div class="space-y-4">
+                        <h4 class="font-semibold text-gray-900 border-b pb-2">Servidor</h4>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">MOTD</label>
+                            <input type="text" x-model="createModal.form.settings.motd" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        </div>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Jugadores máx.</label>
+                                <input type="number" x-model.number="createModal.form.settings['max-players']" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Distancia vista</label>
+                                <input type="number" x-model.number="createModal.form.settings['view-distance']" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Protección spawn</label>
+                                <input type="number" x-model.number="createModal.form.settings['spawn-protection']" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Features -->
+                    <div class="space-y-4">
+                        <h4 class="font-semibold text-gray-900 border-b pb-2">Features</h4>
+                        <div class="grid grid-cols-2 gap-3">
+                            <label class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                                <input type="checkbox" x-model="createModal.form.settings['allow-nether']" class="w-4 h-4">
+                                <span class="text-sm font-medium text-gray-700">Permitir Nether</span>
+                            </label>
+                            <label class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                                <input type="checkbox" x-model="createModal.form.settings['online-mode']" class="w-4 h-4">
+                                <span class="text-sm font-medium text-gray-700">Modo Online</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botones -->
+                <div class="mt-6 flex items-center justify-between">
+                    <button 
+                        x-show="createModal.step > 1"
+                        @click="prevStep()"
+                        class="px-4 py-2 text-gray-700 hover:text-gray-900">
+                        ← Anterior
+                    </button>
+                    <div x-show="createModal.step === 1"></div>
+                    
+                    <div class="flex gap-2">
+                        <button 
+                            @click="closeCreateModal()"
+                            class="px-4 py-2 text-gray-700 hover:text-gray-900">
+                            Cancelar
+                        </button>
+                        <button 
+                            x-show="createModal.step < 3"
+                            @click="nextStep()"
+                            class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg">
+                            Siguiente →
+                        </button>
+                        <button 
+                            x-show="createModal.step === 3"
+                            @click="createWorld()"
+                            :disabled="createModal.loading"
+                            :class="createModal.loading ? 'opacity-50 cursor-not-allowed' : ''"
+                            class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg">
+                            <span x-text="createModal.loading ? 'Creando...' : 'Crear Mundo'"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>

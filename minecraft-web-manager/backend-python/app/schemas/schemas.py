@@ -60,6 +60,7 @@ class CreateWorldRequest(BaseModel):
     type: str = "survival"
     icon: str = "🌍"
     tags: List[str] = []
+    settings: Dict[str, Any] = {}
 
 
 # Plugin schemas

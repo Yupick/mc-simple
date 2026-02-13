@@ -49,7 +49,11 @@ async def create_world(
         "created_at": datetime.utcnow().isoformat()
     }
     
-    result = await world_service.create_world(world_req.id, metadata)
+    result = await world_service.create_world(
+        world_req.id, 
+        metadata, 
+        world_req.settings
+    )
     return result
 
 
