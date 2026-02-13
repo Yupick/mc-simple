@@ -442,9 +442,9 @@ start_server() {
 # Detener servidor
 stop_server() {
     if ! is_running; then
-        print_warning "El servidor no está corriendo"
+        print_info "El servidor ya está detenido"
         rm -f "\$PID_FILE"
-        return 1
+        return 0
     fi
     
     local pid=\$(cat "\$PID_FILE")
