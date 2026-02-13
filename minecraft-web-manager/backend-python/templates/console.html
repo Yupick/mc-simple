@@ -105,18 +105,24 @@
     }
     
     .command-button {
-        padding: 12px 20px;
+        padding: 16px 24px;
         background: linear-gradient(135deg, #00bcd4 0%, #26c6da 100%);
         border: 2px solid #00acc1;
         color: #fff;
-        border-radius: 8px;
+        border-radius: 10px;
         cursor: pointer;
         transition: all 0.25s ease;
-        font-size: 14px;
-        font-weight: 600;
-        box-shadow: 0 3px 8px rgba(0, 188, 212, 0.3);
+        font-size: 15px;
+        font-weight: 700;
+        box-shadow: 0 4px 12px rgba(0, 188, 212, 0.4);
         position: relative;
         overflow: hidden;
+        text-align: center;
+        min-height: 80px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
     }
     
     .command-button::before {
@@ -170,8 +176,19 @@
     
     .command-buttons-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 12px;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 16px;
+    }
+    
+    .command-button .font-semibold {
+        font-size: 16px;
+        margin-bottom: 6px;
+    }
+    
+    .command-button .text-xs {
+        font-size: 12px;
+        opacity: 0.9;
+        font-weight: 400;
     }
 </style>
 {% endblock %}

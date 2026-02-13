@@ -29,6 +29,16 @@ function serverControl() {
                         }
                     });
                 });
+                
+                window.socket.on('log-error', (data) => {
+                    console.error('Error en logs:', data.error);
+                    this.logs.push(`[ERROR] ${data.error}`);
+                });
+                
+                window.socket.on('log-connected', (data) => {
+                    console.log('Logs conectados:', data.message);
+                    this.logs.push(`[INFO] ${data.message}`);
+                });
             }
         },
         
@@ -101,10 +111,10 @@ function serverControl() {
         
         toggleLogs() {
             if (this.logsActive) {
-                window.socket.emit('stop-logs');
+                window.socket.emit('stop_logs');
                 this.logsActive = false;
             } else {
-                window.socket.emit('start-logs');
+                window.socket.emit('start_logs');
                 this.logsActive = true;
             }
         },
