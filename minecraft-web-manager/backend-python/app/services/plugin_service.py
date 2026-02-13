@@ -73,6 +73,33 @@ class PluginService:
         except Exception as e:
             return {"success": False, "message": f"Error: {str(e)}"}
     
+    async def upload_plugin(self, filename: str, content: bytes) -> Dict[str, Any]:
+        """
+        Subir nuevo plugin
+        
+        Args:
+            filename: Nombre del archivo .jar
+            content: Contenido del archivo
+        
+        Returns:
+            Dict con success y mensaje
+        """
+        try:
+            # Asegurar que la carpeta plugins existe
+            self.plugins_path.mkdir(parents=True, exist_ok=True)
+            
+            # Guardar archivo
+            plugin_file = self.plugins_path / filename
+            plugin_file.write_bytes(content)
+            
+            return {
+                "success": True,
+                "message": f"Plugin '{filename}' subido exitosamente"
+            }
+            
+        except Exception as e:
+            return {"success": False, "message": f"Error al subir plugin: {str(e)}"}
+    
     async def delete_plugin(self, plugin_name: str) -> Dict[str, Any]:
         """
         Eliminar plugin

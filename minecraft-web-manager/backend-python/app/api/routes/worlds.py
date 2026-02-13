@@ -64,6 +64,13 @@ async def activate_world(world_id: str, current_user = Depends(require_moderator
     return result
 
 
+@router.put("/{world_id}", response_model=MessageResponse)
+async def update_world(world_id: str, update_data: dict, current_user = Depends(require_moderator)):
+    """Actualizar configuración de mundo"""
+    result = await world_service.update_world_config(world_id, update_data)
+    return result
+
+
 @router.delete("/{world_id}", response_model=MessageResponse)
 async def delete_world(world_id: str, current_user = Depends(require_admin)):
     """Eliminar mundo"""

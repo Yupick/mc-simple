@@ -277,6 +277,75 @@ class WorldService:
         
         file_path.write_text("\n".join(lines))
     
+    async def update_world_config(
+        self, 
+        world_id: str, 
+        config: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Actualizar configuración de mundo (metadata y settings)
+        No permite cambiar seed ni level-type
+        
+        Args:
+            world_id: ID del mundo a actualizar
+            config: Nueva configuración (name, description, icon, settings)
+        
+        Returns:
+            Dict con success y mensaje
+        """
+        world_dir = self.worlds_path / world_id
+        
+        if not world_dir.exists():
+            return {"success": False, "message": "El mundo no existe"}
+        
+        try:
+            # Actualizar metadata
+            metadata_file = world_dir / "metadata.json"
+            if metadata_file.exists():
+                current_metadata = json.loads(metadata_file.read_text())
+            else:
+                current_metadata = {}
+            
+            # Actualizar campos permitidos en metadata
+            if 'name' in config:
+                current_metadata['name'] = config['name']
+            if 'description' in config:
+                current_metadata['description'] = config['description']
+            if 'icon' in config:
+                current_metadata['icon'] = config['icon']
+            
+            metadata_file.write_text(json.dumps(current_metadata, indent=2))
+            
+            # Actualizar server.properties si hay settings
+            if 'settings' in config:
+                props_file = world_dir / "server.properties"
+                current_props = self._read_properties(props_file) if props_file.exists() else {}
+                
+                # Actualizar solo campos editables (NO seed ni level-type)
+                editable_fields = [
+                    'gamemode', 'difficulty', 'pvp', 'motd', 'max-players',
+                    'view-distance', 'spawn-protection', 'allow-flight',
+                    'allow-nether', 'spawn-animals', 'spawn-monsters',
+                    'generate-structures'
+                ]
+                
+                for key, value in config['settings'].items():
+                    if key in editable_fields:
+                        # Convertir booleanos a strings
+                        if isinstance(value, bool):
+                            value = 'true' if value else 'false'
+                        current_props[key] = str(value)
+                
+                self._write_properties(props_file, current_props)
+            
+            return {
+                "success": True,
+                "message": f"Mundo '{world_id}' actualizado exitosamente"
+            }
+            
+        except Exception as e:
+            return {"success": False, "message": f"Error al actualizar mundo: {str(e)}"}
+    
     async def delete_world(self, world_id: str) -> Dict[str, Any]:
         """
         Eliminar mundo (no permite eliminar el activo)

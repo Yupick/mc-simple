@@ -30,6 +30,31 @@ function worldsManager() {
                 }
             }
         },
+        editModal: {
+            open: false,
+            loading: false,
+            error: '',
+            worldId: '',
+            form: {
+                name: '',
+                description: '',
+                icon: '🌍',
+                settings: {
+                    gamemode: 'survival',
+                    difficulty: 'normal',
+                    pvp: true,
+                    motd: 'Un servidor de Minecraft',
+                    'max-players': 20,
+                    'view-distance': 10,
+                    'spawn-protection': 16,
+                    'allow-flight': false,
+                    'allow-nether': true,
+                    'spawn-animals': true,
+                    'spawn-monsters': true,
+                    'generate-structures': true
+                }
+            }
+        },
         worldTypes: [
             { value: 'survival', label: 'Survival', icon: '🌍', desc: 'Modo supervivencia clásico' },
             { value: 'creative', label: 'Creative', icon: '🎨', desc: 'Modo creativo sin límites' },
@@ -198,6 +223,64 @@ function worldsManager() {
                 this.createModal.error = 'Error al crear mundo: ' + e.message;
             } finally {
                 this.createModal.loading = false;
+            }
+        },
+
+        // Edit Modal functions
+        openEditModal(world) {
+            this.editModal.worldId = world.id;
+            this.editModal.form = {
+                name: world.name || '',
+                description: world.description || '',
+                icon: world.icon || '🌍',
+                settings: {
+                    gamemode: world.settings?.gamemode || 'survival',
+                    difficulty: world.settings?.difficulty || 'normal',
+                    pvp: world.settings?.pvp !== undefined ? world.settings.pvp : true,
+                    motd: world.settings?.motd || 'Un servidor de Minecraft',
+                    'max-players': world.settings?.['max-players'] || 20,
+                    'view-distance': world.settings?.['view-distance'] || 10,
+                    'spawn-protection': world.settings?.['spawn-protection'] || 16,
+                    'allow-flight': world.settings?.['allow-flight'] || false,
+                    'allow-nether': world.settings?.['allow-nether'] !== undefined ? world.settings['allow-nether'] : true,
+                    'spawn-animals': world.settings?.['spawn-animals'] !== undefined ? world.settings['spawn-animals'] : true,
+                    'spawn-monsters': world.settings?.['spawn-monsters'] !== undefined ? world.settings['spawn-monsters'] : true,
+                    'generate-structures': world.settings?.['generate-structures'] !== undefined ? world.settings['generate-structures'] : true
+                }
+            };
+            this.editModal.open = true;
+            this.editModal.error = '';
+        },
+
+        closeEditModal() {
+            this.editModal.open = false;
+        },
+
+        async updateWorld() {
+            this.editModal.loading = true;
+            this.editModal.error = '';
+
+            try {
+                const res = await fetch(`/api/worlds/${this.editModal.worldId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(this.editModal.form)
+                });
+
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    alert('Mundo actualizado exitosamente');
+                    this.closeEditModal();
+                    await this.fetchWorlds();
+                    await this.fetchActiveWorld();
+                } else {
+                    this.editModal.error = data.message || 'Error al actualizar mundo';
+                }
+            } catch (e) {
+                this.editModal.error = 'Error al actualizar mundo: ' + e.message;
+            } finally {
+                this.editModal.loading = false;
             }
         }
     }
