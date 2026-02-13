@@ -140,7 +140,9 @@ function worldsManager() {
                     'spawn-protection': 16,
                     'allow-flight': false,
                     'allow-nether': true,
-                    'online-mode': true
+                    'online-mode': true,
+                    'level-seed': '',
+                    'level-type': 'minecraft:normal'
                 }
             };
         },
