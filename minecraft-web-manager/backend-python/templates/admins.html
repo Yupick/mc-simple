@@ -8,12 +8,12 @@
     <div class="mb-6">
         <div class="flex justify-between items-center">
             <div>
-                <h1 class="text-3xl font-bold text-gray-900">Administradores del Servidor</h1>
-                <p class="text-gray-600 mt-1">Gestiona los administradores y operadores del servidor</p>
+                <h1 class="text-3xl font-bold text-gray-900">Administradores del Panel Web</h1>
+                <p class="text-gray-600 mt-1">Gestiona los usuarios con acceso al panel de administración</p>
             </div>
             <button @click="openModal('create')" class="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg hover:shadow-xl flex items-center gap-2">
                 <i data-lucide="user-plus" class="w-5 h-5"></i>
-                <span>Agregar Administrador</span>
+                <span>Agregar Usuario</span>
             </button>
         </div>
     </div>
@@ -23,10 +23,10 @@
         <div class="bg-white rounded-lg shadow-md p-6">
             <div class="flex items-center">
                 <div class="p-3 bg-blue-100 rounded-lg">
-                    <i data-lucide="shield" class="w-6 h-6 text-blue-600"></i>
+                    <i data-lucide="users" class="w-6 h-6 text-blue-600"></i>
                 </div>
                 <div class="ml-4">
-                    <p class="text-sm text-gray-600">Total Admins</p>
+                    <p class="text-sm text-gray-600">Total Usuarios</p>
                     <p class="text-2xl font-bold text-gray-900" x-text="admins.length"></p>
                 </div>
             </div>
@@ -34,24 +34,24 @@
         
         <div class="bg-white rounded-lg shadow-md p-6">
             <div class="flex items-center">
-                <div class="p-3 bg-green-100 rounded-lg">
-                    <i data-lucide="check-circle" class="w-6 h-6 text-green-600"></i>
+                <div class="p-3 bg-purple-100 rounded-lg">
+                    <i data-lucide="shield" class="w-6 h-6 text-purple-600"></i>
                 </div>
                 <div class="ml-4">
-                    <p class="text-sm text-gray-600">Activos</p>
-                    <p class="text-2xl font-bold text-gray-900" x-text="admins.filter(a => !a.banned).length"></p>
+                    <p class="text-sm text-gray-600">Administradores</p>
+                    <p class="text-2xl font-bold text-gray-900" x-text="admins.filter(a => a.role === 'admin').length"></p>
                 </div>
             </div>
         </div>
         
         <div class="bg-white rounded-lg shadow-md p-6">
             <div class="flex items-center">
-                <div class="p-3 bg-purple-100 rounded-lg">
-                    <i data-lucide="crown" class="w-6 h-6 text-purple-600"></i>
+                <div class="p-3 bg-green-100 rounded-lg">
+                    <i data-lucide="eye" class="w-6 h-6 text-green-600"></i>
                 </div>
                 <div class="ml-4">
-                    <p class="text-sm text-gray-600">Nivel 4 (Full)</p>
-                    <p class="text-2xl font-bold text-gray-900" x-text="admins.filter(a => a.level === 4).length"></p>
+                    <p class="text-sm text-gray-600">Moderadores</p>
+                    <p class="text-2xl font-bold text-gray-900" x-text="admins.filter(a => a.role === 'moderator').length"></p>
                 </div>
             </div>
         </div>
@@ -64,14 +64,12 @@
 
     <!-- Admins Grid -->
     <div x-show="!loading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <template x-for="admin in admins" :key="admin.uuid || admin.name">
+        <template x-for="admin in admins" :key="admin.id">
             <div class="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow overflow-hidden border-l-4" 
                  :class="{
-                     'border-purple-500': admin.level === 4,
-                     'border-blue-500': admin.level === 3,
-                     'border-green-500': admin.level === 2,
-                     'border-yellow-500': admin.level === 1,
-                     'opacity-60': admin.banned
+                     'border-purple-500': admin.role === 'admin',
+                     'border-blue-500': admin.role === 'moderator',
+                     'border-green-500': admin.role === 'viewer'
                  }">
                 <!-- Admin Header -->
                 <div class="p-6">
@@ -79,23 +77,19 @@
                         <div class="flex items-center gap-3">
                             <!-- Avatar -->
                             <div class="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl"
-                                 :style="`background: linear-gradient(135deg, ${getColorForName(admin.name)})`">
-                                <span x-text="admin.name.charAt(0).toUpperCase()"></span>
+                                 :style="`background: linear-gradient(135deg, ${getColorForName(admin.username)})`">
+                                <span x-text="admin.username.charAt(0).toUpperCase()"></span>
                             </div>
                             <div>
-                                <h3 class="font-bold text-lg text-gray-900" x-text="admin.name"></h3>
+                                <h3 class="font-bold text-lg text-gray-900" x-text="admin.username"></h3>
                                 <div class="flex items-center gap-2 mt-1">
                                     <span class="text-xs px-2 py-1 rounded-full font-semibold"
                                           :class="{
-                                              'bg-purple-100 text-purple-700': admin.level === 4,
-                                              'bg-blue-100 text-blue-700': admin.level === 3,
-                                              'bg-green-100 text-green-700': admin.level === 2,
-                                              'bg-yellow-100 text-yellow-700': admin.level === 1
+                                              'bg-purple-100 text-purple-700': admin.role === 'admin',
+                                              'bg-blue-100 text-blue-700': admin.role === 'moderator',
+                                              'bg-green-100 text-green-700': admin.role === 'viewer'
                                           }">
-                                        <span x-text="`Nivel ${admin.level}`"></span>
-                                    </span>
-                                    <span x-show="admin.banned" class="text-xs px-2 py-1 rounded-full font-semibold bg-red-100 text-red-700">
-                                        Baneado
+                                        <span x-text="getRoleLabel(admin.role)"></span>
                                     </span>
                                 </div>
                             </div>
@@ -104,17 +98,17 @@
 
                     <!-- Admin Info -->
                     <div class="space-y-2 mb-4">
-                        <div x-show="admin.uuid" class="flex items-center text-sm text-gray-600">
-                            <i data-lucide="fingerprint" class="w-4 h-4 mr-2"></i>
-                            <span class="truncate text-xs" x-text="admin.uuid"></span>
+                        <div class="flex items-center text-sm text-gray-600">
+                            <i data-lucide="calendar" class="w-4 h-4 mr-2"></i>
+                            <span x-text="`Creado: ${formatDate(admin.created_at)}`"></span>
+                        </div>
+                        <div x-show="admin.last_login" class="flex items-center text-sm text-gray-600">
+                            <i data-lucide="clock" class="w-4 h-4 mr-2"></i>
+                            <span x-text="`Último acceso: ${formatDate(admin.last_login)}`"></span>
                         </div>
                         <div class="flex items-center text-sm text-gray-600">
                             <i data-lucide="shield" class="w-4 h-4 mr-2"></i>
-                            <span x-text="getLevelDescription(admin.level)"></span>
-                        </div>
-                        <div x-show="admin.bypassesPlayerLimit" class="flex items-center text-sm text-gray-600">
-                            <i data-lucide="zap" class="w-4 h-4 mr-2 text-yellow-500"></i>
-                            <span>Bypass de límite de jugadores</span>
+                            <span x-text="getRoleDescription(admin.role)"></span>
                         </div>
                     </div>
 
@@ -125,7 +119,7 @@
                             <i data-lucide="edit" class="w-4 h-4"></i>
                             <span>Editar</span>
                         </button>
-                        <button @click="deleteAdmin(admin.name)" 
+                        <button @click="deleteAdmin(admin.id, admin.username)" 
                                 class="px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all shadow-md hover:shadow-lg active:scale-95">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>
@@ -138,12 +132,12 @@
     <!-- Empty State -->
     <div x-show="!loading && admins.length === 0" class="text-center py-12">
         <div class="inline-block p-6 bg-gray-100 rounded-full mb-4">
-            <i data-lucide="shield-off" class="w-16 h-16 text-gray-400"></i>
+            <i data-lucide="users-off" class="w-16 h-16 text-gray-400"></i>
         </div>
-        <h3 class="text-xl font-semibold text-gray-900 mb-2">No hay administradores</h3>
-        <p class="text-gray-600 mb-6">Agrega tu primer administrador al servidor</p>
+        <h3 class="text-xl font-semibold text-gray-900 mb-2">No hay usuarios registrados</h3>
+        <p class="text-gray-600 mb-6">Agrega el primer usuario administrador del panel</p>
         <button @click="openModal('create')" class="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg">
-            Agregar Administrador
+            Agregar Usuario
         </button>
     </div>
 
@@ -169,7 +163,7 @@
             
             <!-- Modal Header -->
             <div class="flex justify-between items-center p-6 border-b border-gray-200">
-                <h3 class="text-xl font-bold text-gray-900" x-text="modalMode === 'create' ? 'Agregar Administrador' : 'Editar Administrador'"></h3>
+                <h3 class="text-xl font-bold text-gray-900" x-text="modalMode === 'create' ? 'Agregar Usuario' : 'Editar Usuario'"></h3>
                 <button @click="closeModal()" class="text-gray-400 hover:text-gray-600">
                     <i data-lucide="x" class="w-6 h-6"></i>
                 </button>
@@ -177,39 +171,41 @@
             
             <!-- Modal Body -->
             <form @submit.prevent="saveAdmin()" class="p-6 space-y-4">
-                <!-- Name -->
+                <!-- Username -->
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Nombre de Usuario *</label>
                     <input type="text" 
-                           x-model="formData.name" 
+                           x-model="formData.username" 
                            :disabled="modalMode === 'edit'"
                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100" 
-                           placeholder="Steve"
+                           placeholder="admin"
                            required>
+                    <p class="text-xs text-gray-500 mt-1">El nombre de usuario no puede cambiarse después de crear</p>
                 </div>
 
-                <!-- Level -->
+                <!-- Password -->
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Nivel de Operador *</label>
-                    <select x-model.number="formData.level" 
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <span x-text="modalMode === 'create' ? 'Contraseña *' : 'Nueva Contraseña (opcional)'"></span>
+                    </label>
+                    <input type="password" 
+                           x-model="formData.password" 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                           placeholder="••••••••"
+                           :required="modalMode === 'create'">
+                    <p class="text-xs text-gray-500 mt-1" x-show="modalMode === 'edit'">Dejar en blanco para mantener la contraseña actual</p>
+                </div>
+
+                <!-- Role -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Rol *</label>
+                    <select x-model="formData.role" 
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             required>
-                        <option value="1">Nivel 1 - Bypass spawn protection</option>
-                        <option value="2">Nivel 2 - Comandos básicos (/clear, /give)</option>
-                        <option value="3">Nivel 3 - Gestión de jugadores (/ban, /kick)</option>
-                        <option value="4">Nivel 4 - Full control del servidor</option>
+                        <option value="admin">Administrador - Control total del panel</option>
+                        <option value="moderator">Moderador - Gestión limitada</option>
+                        <option value="viewer">Visor - Solo lectura</option>
                     </select>
-                </div>
-
-                <!-- Bypass Player Limit -->
-                <div class="flex items-center">
-                    <input type="checkbox" 
-                           x-model="formData.bypassesPlayerLimit" 
-                           id="bypassLimit"
-                           class="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500">
-                    <label for="bypassLimit" class="ml-2 text-sm text-gray-700">
-                        Permitir bypass de límite de jugadores
-                    </label>
                 </div>
 
                 <!-- Actions -->
@@ -221,7 +217,7 @@
                     </button>
                     <button type="submit" 
                             class="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-md hover:shadow-lg active:scale-95">
-                        <span x-text="modalMode === 'create' ? 'Agregar' : 'Guardar'"></span>
+                        <span x-text="modalMode === 'create' ? 'Crear Usuario' : 'Guardar Cambios'"></span>
                     </button>
                 </div>
             </form>

@@ -5,10 +5,9 @@ function adminsComponent() {
         showModal: false,
         modalMode: 'create', // 'create' or 'edit'
         formData: {
-            name: '',
-            uuid: '',
-            level: 4,
-            bypassesPlayerLimit: false
+            username: '',
+            password: '',
+            role: 'admin'
         },
         editingAdmin: null,
 
@@ -24,7 +23,7 @@ function adminsComponent() {
                     const data = await response.json();
                     this.admins = data.admins || [];
                 } else {
-                    console.error('Error al cargar administradores');
+                    console.error('Error al cargar usuarios');
                 }
             } catch (error) {
                 console.error('Error:', error);
@@ -41,18 +40,16 @@ function adminsComponent() {
             if (mode === 'edit' && admin) {
                 this.editingAdmin = admin;
                 this.formData = {
-                    name: admin.name,
-                    uuid: admin.uuid || '',
-                    level: admin.level,
-                    bypassesPlayerLimit: admin.bypassesPlayerLimit || false
+                    username: admin.username,
+                    password: '', // No mostrar password existente
+                    role: admin.role
                 };
             } else {
                 this.editingAdmin = null;
                 this.formData = {
-                    name: '',
-                    uuid: '',
-                    level: 4,
-                    bypassesPlayerLimit: false
+                    username: '',
+                    password: '',
+                    role: 'admin'
                 };
             }
             
@@ -76,7 +73,7 @@ function adminsComponent() {
                         body: JSON.stringify(this.formData)
                     });
                 } else {
-                    response = await fetch(`/api/admins/${encodeURIComponent(this.editingAdmin.name)}`, {
+                    response = await fetch(`/api/admins/${this.editingAdmin.id}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(this.formData)
@@ -87,12 +84,12 @@ function adminsComponent() {
                     this.closeModal();
                     await this.loadAdmins();
                     this.showNotification(
-                        this.modalMode === 'create' ? 'Administrador agregado exitosamente' : 'Administrador actualizado exitosamente',
+                        this.modalMode === 'create' ? 'Usuario creado exitosamente' : 'Usuario actualizado exitosamente',
                         'success'
                     );
                 } else {
                     const error = await response.json();
-                    this.showNotification(error.detail || 'Error al guardar administrador', 'error');
+                    this.showNotification(error.detail || 'Error al guardar usuario', 'error');
                 }
             } catch (error) {
                 console.error('Error:', error);
@@ -100,22 +97,22 @@ function adminsComponent() {
             }
         },
 
-        async deleteAdmin(name) {
-            if (!confirm(`¿Estás seguro de eliminar al administrador "${name}"?`)) {
+        async deleteAdmin(id, username) {
+            if (!confirm(`¿Estás seguro de eliminar al usuario "${username}"?\n\nEsta acción no se puede deshacer.`)) {
                 return;
             }
 
             try {
-                const response = await fetch(`/api/admins/${encodeURIComponent(name)}`, {
+                const response = await fetch(`/api/admins/${id}`, {
                     method: 'DELETE'
                 });
 
                 if (response.ok) {
                     await this.loadAdmins();
-                    this.showNotification('Administrador eliminado exitosamente', 'success');
+                    this.showNotification('Usuario eliminado exitosamente', 'success');
                 } else {
                     const error = await response.json();
-                    this.showNotification(error.detail || 'Error al eliminar administrador', 'error');
+                    this.showNotification(error.detail || 'Error al eliminar usuario', 'error');
                 }
             } catch (error) {
                 console.error('Error:', error);
@@ -139,14 +136,60 @@ function adminsComponent() {
             return colors[hash % colors.length];
         },
 
-        getLevelDescription(level) {
-            const descriptions = {
-                1: 'Bypass spawn protection',
-                2: 'Comandos básicos',
-                3: 'Gestión de jugadores',
-                4: 'Control total del servidor'
+        getRoleLabel(role) {
+            const labels = {
+                'admin': 'Administrador',
+                'moderator': 'Moderador',
+                'viewer': 'Visor'
             };
-            return descriptions[level] || 'Desconocido';
+            return labels[role] || role;
+        },
+
+        getRoleDescription(role) {
+            const descriptions = {
+                'admin': 'Control total del sistema',
+                'moderator': 'Gestión limitada del servidor',
+                'viewer': 'Solo lectura'
+            };
+            return descriptions[role] || 'Sin descripción';
+        },
+
+        formatDate(dateString) {
+            if (!dateString) return 'Nunca';
+            
+            const date = new Date(dateString);
+            const now = new Date();
+            const diff = now - date;
+            
+            // Menos de 1 minuto
+            if (diff < 60000) {
+                return 'Hace un momento';
+            }
+            
+            // Menos de 1 hora
+            if (diff < 3600000) {
+                const mins = Math.floor(diff / 60000);
+                return `Hace ${mins} min${mins > 1 ? 's' : ''}`;
+            }
+            
+            // Menos de 1 día
+            if (diff < 86400000) {
+                const hours = Math.floor(diff / 3600000);
+                return `Hace ${hours} hora${hours > 1 ? 's' : ''}`;
+            }
+            
+            // Menos de 7 días
+            if (diff < 604800000) {
+                const days = Math.floor(diff / 86400000);
+                return `Hace ${days} día${days > 1 ? 's' : ''}`;
+            }
+            
+            // Formato fecha completa
+            return date.toLocaleDateString('es-ES', { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric' 
+            });
         },
 
         showNotification(message, type = 'info') {

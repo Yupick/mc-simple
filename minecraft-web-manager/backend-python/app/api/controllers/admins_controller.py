@@ -1,36 +1,38 @@
-"""Controlador para gestión de administradores (alias amigable de operadores)"""
-from fastapi import APIRouter, HTTPException
+"""Controlador para gestión de administradores del panel web"""
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
-from app.services.op_service import op_service
+from sqlalchemy.orm import Session
+from datetime import datetime
+
+from app.db.session import get_db
+from app.models.user import User
+from app.core.security import get_password_hash
 
 
 router = APIRouter()
 
 
 class AdminRequest(BaseModel):
-    name: str
-    uuid: Optional[str] = ""
-    level: int = 4
-    bypassesPlayerLimit: bool = False
+    username: str
+    password: Optional[str] = None  # Solo requerido al crear
+    role: str = "admin"  # admin, moderator, viewer
 
 
 @router.get("")
-async def get_admins():
-    """Obtener lista de administradores (operadores)"""
+async def get_admins(db: Session = Depends(get_db)):
+    """Obtener lista de usuarios administradores del panel web"""
     try:
-        ops = await op_service.get_operators()
+        users = db.query(User).all()
         
-        # Agregar campo banned consultando desde ban service si está disponible
-        # Por ahora solo retornamos los ops con banned=False por defecto
         admins = []
-        for op in ops:
+        for user in users:
             admin = {
-                "name": op.get("name"),
-                "uuid": op.get("uuid", ""),
-                "level": op.get("level", 4),
-                "bypassesPlayerLimit": op.get("bypassesPlayerLimit", False),
-                "banned": False  # TODO: Integrar con ban service
+                "id": user.id,
+                "username": user.username,
+                "role": user.role,
+                "created_at": user.created_at.isoformat() if user.created_at else None,
+                "last_login": user.last_login.isoformat() if user.last_login else None
             }
             admins.append(admin)
         
@@ -40,93 +42,111 @@ async def get_admins():
 
 
 @router.post("")
-async def add_admin(request: AdminRequest):
-    """Agregar un administrador"""
+async def add_admin(request: AdminRequest, db: Session = Depends(get_db)):
+    """Agregar un nuevo administrador del panel web"""
     try:
-        if request.level < 1 or request.level > 4:
-            raise HTTPException(status_code=400, detail="El nivel debe estar entre 1 y 4")
+        # Validar que se proporcione contraseña al crear
+        if not request.password:
+            raise HTTPException(status_code=400, detail="La contraseña es requerida al crear un usuario")
         
-        # Si no se proporciona UUID, usar el nombre como identificador temporal
-        # En producción, se debería obtener el UUID real del jugador via API de Mojang
-        uuid = request.uuid if request.uuid else f"offline-{request.name}"
+        # Validar rol
+        if request.role not in ["admin", "moderator", "viewer"]:
+            raise HTTPException(status_code=400, detail="Rol inválido. Debe ser: admin, moderator o viewer")
         
-        success = await op_service.add_operator(
-            request.name,
-            uuid,
-            request.level,
-            request.bypassesPlayerLimit
+        # Verificar si el usuario ya existe
+        existing_user = db.query(User).filter(User.username == request.username).first()
+        if existing_user:
+            raise HTTPException(status_code=400, detail="El nombre de usuario ya existe")
+        
+        # Crear nuevo usuario
+        new_user = User(
+            username=request.username,
+            password_hash=get_password_hash(request.password),
+            role=request.role,
+            created_at=datetime.utcnow()
         )
         
-        if success:
-            return {
-                "success": True,
-                "message": f"{request.name} agregado como administrador nivel {request.level}"
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        
+        return {
+            "success": True,
+            "message": f"Usuario {request.username} creado exitosamente",
+            "user": {
+                "id": new_user.id,
+                "username": new_user.username,
+                "role": new_user.role
             }
-        else:
-            raise HTTPException(status_code=400, detail="No se pudo agregar el administrador")
+        }
     except HTTPException:
         raise
     except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.put("/{name}")
-async def update_admin(name: str, request: AdminRequest):
-    """Actualizar un administrador"""
+@router.put("/{user_id}")
+async def update_admin(user_id: int, request: AdminRequest, db: Session = Depends(get_db)):
+    """Actualizar un administrador del panel web"""
     try:
-        if request.level < 1 or request.level > 4:
-            raise HTTPException(status_code=400, detail="El nivel debe estar entre 1 y 4")
+        # Validar rol
+        if request.role not in ["admin", "moderator", "viewer"]:
+            raise HTTPException(status_code=400, detail="Rol inválido. Debe ser: admin, moderator o viewer")
         
-        # Obtener operadores actuales
-        ops = await op_service.get_operators()
-        operator = next((op for op in ops if op.get('name') == name), None)
+        # Buscar usuario
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
         
-        if not operator:
-            raise HTTPException(status_code=404, detail="Administrador no encontrado")
+        # Actualizar campos
+        user.role = request.role
         
-        # Usar el UUID existente
-        uuid = operator.get('uuid')
+        # Si se proporciona nueva contraseña
+        if request.password:
+            user.password_hash = get_password_hash(request.password)
         
-        # Actualizar (add_operator actualiza si ya existe)
-        success = await op_service.add_operator(
-            request.name,
-            uuid,
-            request.level,
-            request.bypassesPlayerLimit
-        )
+        db.commit()
+        db.refresh(user)
         
-        if success:
-            return {
-                "success": True,
-                "message": f"Administrador {name} actualizado"
-            }
-        else:
-            raise HTTPException(status_code=400, detail="No se pudo actualizar el administrador")
+        return {
+            "success": True,
+            "message": f"Usuario {user.username} actualizado exitosamente"
+        }
     except HTTPException:
         raise
     except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/{name}")
-async def delete_admin(name: str):
-    """Eliminar un administrador"""
+@router.delete("/{user_id}")
+async def delete_admin(user_id: int, db: Session = Depends(get_db)):
+    """Eliminar un administrador del panel web"""
     try:
-        # Buscar el operador por nombre para obtener UUID
-        ops = await op_service.get_operators()
-        operator = next((op for op in ops if op.get('name') == name), None)
+        # Buscar usuario
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
         
-        if not operator:
-            raise HTTPException(status_code=404, detail="Administrador no encontrado")
+        # Verificar que no sea el último admin
+        admin_count = db.query(User).filter(User.role == "admin").count()
+        if user.role == "admin" and admin_count <= 1:
+            raise HTTPException(
+                status_code=400, 
+                detail="No se puede eliminar el último administrador del sistema"
+            )
         
-        uuid = operator.get('uuid')
-        success = await op_service.remove_operator(uuid)
+        username = user.username
+        db.delete(user)
+        db.commit()
         
-        if success:
-            return {"success": True, "message": f"Administrador {name} eliminado"}
-        else:
-            raise HTTPException(status_code=404, detail="No se pudo eliminar el administrador")
+        return {
+            "success": True,
+            "message": f"Usuario {username} eliminado exitosamente"
+        }
     except HTTPException:
         raise
     except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
