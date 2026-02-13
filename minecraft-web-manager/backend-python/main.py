@@ -11,7 +11,7 @@ from typing import Optional
 from app.core.config import settings
 from app.core.deps import get_current_user_optional
 from app.models.user import User
-from app.api.routes import auth, server, worlds, plugins, backups, config, system
+from app.api.routes import auth, server, worlds, plugins, backups, config, system, users
 from app.services.websocket_service import WebSocketService
 
 # Crear aplicación FastAPI
@@ -46,6 +46,7 @@ app.include_router(plugins.router)
 app.include_router(backups.router)
 app.include_router(config.router)
 app.include_router(system.router)
+app.include_router(users.router, prefix="/api")
 
 # Socket.IO
 sio = socketio.AsyncServer(
@@ -143,6 +144,21 @@ async def worlds_page(
         return RedirectResponse(url="/login")
     
     return templates.TemplateResponse("worlds.html", {
+        "request": request,
+        "user": user
+    })
+
+
+@app.get("/users", response_class=HTMLResponse)
+async def users_page(
+    request: Request,
+    user: Optional[User] = Depends(get_current_user_optional)
+):
+    """Página de gestión de usuarios"""
+    if not user:
+        return RedirectResponse(url="/login")
+    
+    return templates.TemplateResponse("users.html", {
         "request": request,
         "user": user
     })
