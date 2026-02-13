@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Mundos - Minecraft Manager{% endblock %}
+{% block page_title %}Gestión de Mundos{% endblock %}
+{% block page_description %}Administrar mundos del servidor{% endblock %}
+
+{% block content %}
+<div x-data="worldsManager()" x-init="init()">
+    <!-- Active World Card -->
+    <div x-show="activeWorld" class="bg-gradient-to-r from-primary-500 to-primary-600 rounded-lg shadow p-6 mb-6 text-white">
+        <h3 class="text-2xl font-bold mb-2">
+            <span x-text="activeWorld?.icon || '🌍'"></span>
+            <span x-text="activeWorld?.name || 'Sin mundo activo'"></span>
+        </h3>
+        <p x-text="activeWorld?.description || ''" class="opacity-90"></p>
+        <div class="mt-4 flex items-center space-x-4 text-sm">
+            <span><i data-lucide="hard-drive" class="w-4 h-4 inline mr-1"></i><span x-text="`${activeWorld?.size_mb || 0} MB`"></span></span>
+            <span x-text="activeWorld?.type || 'survival'" class="capitalize"></span>
+        </div>
+    </div>
+    
+    <!-- Worlds List -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-bold text-gray-900">Todos los Mundos</h3>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <template x-for="world in worlds" :key="world.id">
+                <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+                    <div class="flex items-start justify-between mb-3">
+                        <div>
+                            <h4 class="font-bold text-lg">
+                                <span x-text="world.icon"></span>
+                                <span x-text="world.name"></span>
+                            </h4>
+                            <p x-text="world.description" class="text-sm text-gray-600 mt-1"></p>
+                        </div>
+                        <span x-show="world.is_active" class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">Activo</span>
+                    </div>
+                    
+                    <div class="text-sm text-gray-600 space-y-1 mb-3">
+                        <p><span class="font-medium">Tamaño:</span> <span x-text="`${world.size_mb} MB`"></span></p>
+                        <p><span class="font-medium">Tipo:</span> <span x-text="world.type" class="capitalize"></span></p>
+                    </div>
+                    
+                    <div class="flex space-x-2">
+                        <button @click="activateWorld(world.id)" 
+                                :disabled="world.is_active"
+                                :class="world.is_active ? 'opacity-50 cursor-not-allowed' : ''"
+                                class="flex-1 bg-primary-600 hover:bg-primary-700 text-white text-sm py-2 rounded">
+                            Activar
+                        </button>
+                        <button @click="deleteWorld(world.id)" 
+                                :disabled="world.is_active"
+                                :class="world.is_active ? 'opacity-50 cursor-not-allowed' : ''"
+                                class="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-2 rounded">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/components/worlds.js"></script>
+{% endblock %}

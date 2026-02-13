@@ -1,0 +1,24 @@
+[Unit]
+Description=Minecraft Web Manager (Python FastAPI)
+After=network.target
+
+[Service]
+Type=simple
+User=mkd
+Group=mkd
+WorkingDirectory=/home/mkd/contenedores/mc-simple/minecraft-web-manager/backend-python
+Environment="PATH=/home/mkd/contenedores/mc-simple/minecraft-web-manager/backend-python/venv/bin"
+ExecStart=/home/mkd/contenedores/mc-simple/minecraft-web-manager/backend-python/venv/bin/uvicorn main:app_socketio --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=10
+
+# Logs
+StandardOutput=append:/home/mkd/contenedores/mc-simple/minecraft-web-manager/backend-python/logs/server.log
+StandardError=append:/home/mkd/contenedores/mc-simple/minecraft-web-manager/backend-python/logs/server.log
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

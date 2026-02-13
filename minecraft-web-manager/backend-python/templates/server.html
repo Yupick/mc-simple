@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Control del Servidor - Minecraft Manager{% endblock %}
+
+{% block page_title %}Control del Servidor{% endblock %}
+{% block page_description %}Iniciar, detener y monitorear el servidor{% endblock %}
+
+{% block content %}
+<div x-data="serverControl()" x-init="init()">
+    <!-- Server Status Card -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h3 class="text-2xl font-bold text-gray-900">Estado del Servidor</h3>
+                <p x-text="status.running ? 'El servidor está en línea' : 'El servidor está detenido'"
+                   class="text-sm text-gray-600 mt-1"></p>
+            </div>
+            <div class="flex items-center space-x-2">
+                <div :class="status.running ? 'bg-green-500' : 'bg-red-500'" 
+                     class="w-3 h-3 rounded-full animate-pulse-slow"></div>
+                <span x-text="status.running ? 'Online' : 'Offline'"
+                      :class="status.running ? 'text-green-600' : 'text-red-600'"
+                      class="font-semibold"></span>
+            </div>
+        </div>
+        
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-gray-50 rounded-lg p-4">
+                <p class="text-sm text-gray-600 mb-1">Jugadores</p>
+                <p class="text-xl font-bold">
+                    <span x-text="status.players?.online || 0"></span>/<span x-text="status.players?.max || 20"></span>
+                </p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4">
+                <p class="text-sm text-gray-600 mb-1">Memoria</p>
+                <p x-text="formatMemory(status.memory?.used)" class="text-xl font-bold"></p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4">
+                <p class="text-sm text-gray-600 mb-1">CPU</p>
+                <p x-text="`${status.cpu?.toFixed(1) || 0}%`" class="text-xl font-bold"></p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4">
+                <p class="text-sm text-gray-600 mb-1">Uptime</p>
+                <p x-text="formatUptime(status.uptime)" class="text-xl font-bold"></p>
+            </div>
+        </div>
+        
+        <!-- Control Buttons -->
+        <div class="flex space-x-4">
+            <button @click="startServer()" 
+                    :disabled="status.running || loading"
+                    :class="status.running || loading ? 'opacity-50 cursor-not-allowed' : ''"
+                    class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition">
+                <i data-lucide="play" class="w-5 h-5 inline mr-2"></i>
+                Iniciar
+            </button>
+            <button @click="stopServer()" 
+                    :disabled="!status.running || loading"
+                    :class="!status.running || loading ? 'opacity-50 cursor-not-allowed' : ''"
+                    class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg transition">
+                <i data-lucide="stop-circle" class="w-5 h-5 inline mr-2"></i>
+                Detener
+            </button>
+            <button @click="restartServer()" 
+                    :disabled="!status.running || loading"
+                    :class="!status.running || loading ? 'opacity-50 cursor-not-allowed' : ''"
+                    class="flex-1 bg-primary-600 hover:bg-primary-700 text-white font-bold py-3 rounded-lg transition">
+                <i data-lucide="refresh-cw" class="w-5 h-5 inline mr-2"></i>
+                Reiniciar
+            </button>
+        </div>
+    </div>
+    
+    <!-- Logs Section -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-bold text-gray-900">Logs del Servidor</h3>
+            <div class="flex space-x-2">
+                <button @click="toggleLogs()" 
+                        :class="logsActive ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'"
+                        class="text-white px-4 py-2 rounded-lg transition">
+                    <span x-text="logsActive ? 'Detener' : 'Iniciar'"></span>
+                </button>
+                <button @click="clearLogs()" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition">
+                    Limpiar
+                </button>
+            </div>
+        </div>
+        
+        <!-- Logs Container -->
+        <div class="bg-black text-green-400 rounded-lg p-4 h-96 overflow-y-auto scrollbar-thin logs-container font-mono text-sm">
+            <template x-for="(log, index) in logs" :key="index">
+                <div x-text="log" class="mb-1"></div>
+            </template>
+            <div x-show="logs.length === 0" class="text-gray-500">
+                No hay logs. Click en "Iniciar" para ver logs en tiempo real.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/components/server.js"></script>
+{% endblock %}

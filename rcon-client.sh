@@ -23,15 +23,9 @@ print_error() { echo -e "${RED}[✗]${NC} $1"; }
 check_dependencies() {
     if ! command -v mcrcon &> /dev/null; then
         print_error "mcrcon no está instalado"
-        print_info "Instalando mcrcon..."
-        
-        if command -v apt &> /dev/null; then
-            sudo apt update && sudo apt install -y mcrcon
-        else
-            print_error "No se pudo instalar mcrcon automáticamente"
-            print_info "Instala mcrcon manualmente desde: https://github.com/Tiiffi/mcrcon"
-            exit 1
-        fi
+        print_info "Para instalar: sudo apt update && sudo apt install -y mcrcon"
+        print_info "O descarga desde: https://github.com/Tiiffi/mcrcon"
+        exit 1
     fi
 }
 

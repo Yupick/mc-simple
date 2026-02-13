@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Minecraft Manager{% endblock %}
+
+{% block content %}
+<div x-data="dashboard()" x-init="init()">
+    <!-- Welcome Card -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 class="text-2xl font-bold text-gray-900 mb-2">Bienvenido, {{ user.username }}! 👋</h2>
+        <p class="text-gray-600">Este es tu panel de control del servidor Minecraft</p>
+    </div>
+    
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        <!-- Server Status -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-medium text-gray-500">Estado del Servidor</h3>
+                <i data-lucide="server" class="w-5 h-5 text-primary-500"></i>
+            </div>
+            <p x-text="status.running ? 'Online' : 'Offline'" 
+               :class="status.running ? 'text-green-600' : 'text-red-600'"
+               class="text-2xl font-bold"></p>
+        </div>
+        
+        <!-- Players Online -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-medium text-gray-500">Jugadores</h3>
+                <i data-lucide="users" class="w-5 h-5 text-primary-500"></i>
+            </div>
+            <p class="text-2xl font-bold text-gray-900">
+                <span x-text="status.players?.online || 0"></span>/<span x-text="status.players?.max || 20"></span>
+            </p>
+        </div>
+        
+        <!-- Memory Usage -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-medium text-gray-500">Memoria</h3>
+                <i data-lucide="cpu" class="w-5 h-5 text-primary-500"></i>
+            </div>
+            <p x-text="formatMemory(status.memory?.used)" class="text-2xl font-bold text-gray-900">0 MB</p>
+        </div>
+        
+        <!-- CPU Usage -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-medium text-gray-500">CPU</h3>
+                <i data-lucide="activity" class="w-5 h-5 text-primary-500"></i>
+            </div>
+            <p x-text="`${status.cpu?.toFixed(1) || 0}%`" class="text-2xl font-bold text-gray-900"></p>
+        </div>
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Acciones Rápidas</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <a href="/server" class="flex flex-col items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                <i data-lucide="power" class="w-8 h-8 text-primary-500 mb-2"></i>
+                <span class="text-sm font-medium">Control</span>
+            </a>
+            <a href="/worlds" class="flex flex-col items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                <i data-lucide="globe" class="w-8 h-8 text-primary-500 mb-2"></i>
+                <span class="text-sm font-medium">Mundos</span>
+            </a>
+            <a href="/plugins" class="flex flex-col items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                <i data-lucide="plug" class="w-8 h-8 text-primary-500 mb-2"></i>
+                <span class="text-sm font-medium">Plugins</span>
+            </a>
+            <a href="/backups" class="flex flex-col items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                <i data-lucide="archive" class="w-8 h-8 text-primary-500 mb-2"></i>
+                <span class="text-sm font-medium">Backups</span>
+            </a>
+        </div>
+    </div>
+    
+    <!-- System Info -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Información del Sistema</h3>
+        <div class="space-y-3">
+            <div class="flex justify-between">
+                <span class="text-gray-600">RAM Total:</span>
+                <span x-text="formatMemory(systemInfo.memory?.total)" class="font-medium">Loading...</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-600">Disco Usado:</span>
+                <span x-text="`${systemInfo.disk?.percent?.toFixed(1) || 0}%`" class="font-medium">Loading...</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-600">Sistema Operativo:</span>
+                <span x-text="systemInfo.os?.system || 'Loading...'" class="font-medium"></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function dashboard() {
+    return {
+        status: { running: false, memory: {}, cpu: 0, players: {} },
+        systemInfo: { memory: {}, disk: {}, os: {} },
+        
+        init() {
+            this.fetchStatus();
+            this.fetchSystemInfo();
+            
+            // Escuchar WebSocket para actualizaciones
+            if (window.socket) {
+                window.socket.on('server-status-update', (data) => {
+                    this.status = data;
+                });
+            }
+        },
+        
+        async fetchStatus() {
+            try {
+                const res = await fetch('/api/server/status');
+                this.status = await res.json();
+            } catch (e) {
+                console.error('Error:', e);
+            }
+        },
+        
+        async fetchSystemInfo() {
+            try {
+                const res = await fetch('/api/system/info');
+                this.systemInfo = await res.json();
+            } catch (e) {
+                console.error('Error:', e);
+            }
+        },
+        
+        formatMemory(bytes) {
+            if (!bytes) return '0 MB';
+            const mb = bytes / (1024 * 1024);
+            return `${mb.toFixed(0)} MB`;
+        }
+    }
+}
+</script>
+{% endblock %}

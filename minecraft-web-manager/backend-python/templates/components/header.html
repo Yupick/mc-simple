@@ -1,0 +1,46 @@
+<!-- Header Component -->
+<header class="bg-white border-b border-gray-200 px-6 py-4">
+    <div class="flex items-center justify-between">
+        <!-- Breadcrumb -->
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900">{% block page_title %}Dashboard{% endblock %}</h2>
+            <p class="text-sm text-gray-500 mt-1">{% block page_description %}Panel de control principal{% endblock %}</p>
+        </div>
+        
+        <!-- Server Status Widget -->
+        <div x-data="headerStatus()" x-init="init()">
+            <div class="flex items-center space-x-2 bg-gray-50 px-4 py-2 rounded-lg">
+                <div x-show="status.running" class="w-2 h-2 bg-green-500 rounded-full animate-pulse-slow"></div>
+                <div x-show="!status.running" class="w-2 h-2 bg-red-500 rounded-full"></div>
+                <span x-text="status.running ? 'Servidor Online' : 'Servidor Offline'" class="text-sm font-medium text-gray-700"></span>
+                <span x-show="status.running && status.players" x-text="`${status.players?.online || 0}/${status.players?.max || 0}`" class="text-xs text-gray-500"></span>
+            </div>
+        </div>
+    </div>
+</header>
+
+<script>
+function headerStatus() {
+    return {
+        status: { running: false, players: { online: 0, max: 0 } },
+        init() {
+            this.fetchStatus();
+            // Escuchar actualizaciones de WebSocket
+            if (window.socket) {
+                window.socket.on('server-status-update', (data) => {
+                    this.status = data;
+                });
+            }
+        },
+        async fetchStatus() {
+            try {
+                const res = await fetch('/api/server/status');
+                const data = await res.json();
+                this.status = data;
+            } catch (e) {
+                console.error('Error fetching status:', e);
+            }
+        }
+    }
+}
+</script>

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Sistema de Backups - Minecraft Manager{% endblock %}
+{% block page_title %}Sistema de Backups{% endblock %}
+{% block page_description %}Crear y gestionar copias de seguridad{% endblock %}
+
+{% block content %}
+<div x-data="backupsManager()" x-init="init()">
+    <!-- Create Backup Card -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <h3 class="text-xl font-bold text-gray-900 mb-4">Crear Backup</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <button @click="createBackup('full')" :disabled="loading" class="bg-primary-600 hover:bg-primary-700 text-white font-bold py-4 rounded-lg transition">
+                <i data-lucide="database" class="w-6 h-6 mx-auto mb-2"></i>
+                <div>Completo</div>
+            </button>
+            <button @click="createBackup('world')" :disabled="loading" class="bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-lg transition">
+                <i data-lucide="globe" class="w-6 h-6 mx-auto mb-2"></i>
+                <div>Mundo</div>
+            </button>
+            <button @click="createBackup('plugins')" :disabled="loading" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-lg transition">
+                <i data-lucide="plug" class="w-6 h-6 mx-auto mb-2"></i>
+                <div>Plugins</div>
+            </button>
+            <button @click="createBackup('config')" :disabled="loading" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-lg transition">
+                <i data-lucide="settings" class="w-6 h-6 mx-auto mb-2"></i>
+                <div>Config</div>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Backups List -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-xl font-bold text-gray-900 mb-6">Historial de Backups</h3>
+        
+        <div class="space-y-3">
+            <template x-for="backup in backups" :key="backup.filename">
+                <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:shadow-md transition">
+                    <div class="flex items-center space-x-4">
+                        <i data-lucide="archive" class="w-8 h-8 text-primary-500"></i>
+                        <div>
+                            <h4 x-text="backup.filename" class="font-medium text-gray-900"></h4>
+                            <p class="text-sm text-gray-600">
+                                <span x-text="`${backup.size_mb.toFixed(2)} MB`"></span>
+                                <span class="mx-2">•</span>
+                                <span x-text="new Date(backup.created_at).toLocaleString()"></span>
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <button @click="deleteBackup(backup.filename)" 
+                            class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </template>
+            
+            <div x-show="backups.length === 0" class="text-center py-8 text-gray-500">
+                No hay backups disponibles
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/components/backups.js"></script>
+{% endblock %}

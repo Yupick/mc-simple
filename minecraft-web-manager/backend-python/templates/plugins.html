@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Plugins - Minecraft Manager{% endblock %}
+{% block page_title %}Gestión de Plugins{% endblock %}
+{% block page_description %}Administrar plugins del servidor{% endblock %}
+
+{% block content %}
+<div x-data="pluginsManager()" x-init="init()">
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-xl font-bold text-gray-900 mb-6">Plugins Instalados</h3>
+        
+        <div class="space-y-4">
+            <template x-for="plugin in plugins" :key="plugin.name">
+                <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:shadow-md transition">
+                    <div class="flex items-center space-x-4">
+                        <div :class="plugin.enabled ? 'bg-green-100' : 'bg-gray-100'" 
+                             class="w-12 h-12 rounded-lg flex items-center justify-center">
+                            <i data-lucide="plug" :class="plugin.enabled ? 'text-green-600' : 'text-gray-400'" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <h4 x-text="plugin.name" class="font-bold text-gray-900"></h4>
+                            <p class="text-sm text-gray-600">
+                                <span x-text="`${plugin.size_mb.toFixed(2)} MB`"></span>
+                                <span x-show="plugin.enabled" class="text-green-600 ml-2">● Habilitado</span>
+                                <span x-show="!plugin.enabled" class="text-gray-400 ml-2">○ Deshabilitado</span>
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex space-x-2">
+                        <button @click="togglePlugin(plugin.name)" 
+                                :class="plugin.enabled ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-green-600 hover:bg-green-700'"
+                                class="text-white px-4 py-2 rounded-lg transition">
+                            <span x-text="plugin.enabled ? 'Deshabilitar' : 'Habilitar'"></span>
+                        </button>
+                        <button @click="deletePlugin(plugin.name)" 
+                                class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            </template>
+            
+            <div x-show="plugins.length === 0" class="text-center py-8 text-gray-500">
+                No hay plugins instalados
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/components/plugins.js"></script>
+{% endblock %}
