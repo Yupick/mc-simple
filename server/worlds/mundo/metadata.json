@@ -1,14 +1,13 @@
 {
   "id": "mundo",
   "name": "mundo",
-  "description": "Mundo sin descripción",
-  "type": "survival",
-  "icon": "🌍",
+  "description": "Mundo Inicial ",
+  "type": "rpg",
+  "icon": "⚔️",
   "created_at": "2026-02-12T00:04:07.653Z",
-  "updated_at": "2026-02-12T00:04:07.653Z",
+  "updated_at": "2026-02-12T04:11:20.140Z",
   "last_played": null,
   "size_mb": 0,
   "playerdata_count": 0,
-  "settings": {},
   "custom_tags": []
 }

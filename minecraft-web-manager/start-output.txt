@@ -1,0 +1,7 @@
+[0;34mℹ️  Iniciando servidor en 0.0.0.0:8000...[0m
+[0;32m✅ Servidor iniciado correctamente (PID: 14892)[0m
+[0;34mℹ️  URL: http://0.0.0.0:8000[0m
+[0;34mℹ️  Docs: http://0.0.0.0:8000/docs[0m
+[0;34mℹ️  Logs: /home/mkd/contenedores/mc-simple/minecraft-web-manager/backend-python/logs/server.log[0m
+[0;34mℹ️  [0m
+[0;34mℹ️  Para ver logs en tiempo real: ./python-manager.sh logs[0m
