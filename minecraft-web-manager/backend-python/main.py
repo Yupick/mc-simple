@@ -11,7 +11,7 @@ from typing import Optional
 from app.core.config import settings
 from app.core.deps import get_current_user_optional
 from app.models.user import User
-from app.api.routes import auth, server, worlds, plugins, backups, config, system, users, console, admins
+from app.api.routes import auth, server, worlds, plugins, backups, config, system, users, console, admins, resourcepacks
 from app.services.websocket_service import WebSocketService
 
 # Crear aplicación FastAPI
@@ -49,6 +49,7 @@ app.include_router(system.router)
 app.include_router(users.router, prefix="/api")
 app.include_router(console.router, prefix="/api")
 app.include_router(admins.router, prefix="/api")
+app.include_router(resourcepacks.router, prefix="/api")
 
 # Socket.IO
 sio = socketio.AsyncServer(
@@ -236,6 +237,21 @@ async def admins_page(
         return RedirectResponse(url="/login")
     
     return templates.TemplateResponse("admins.html", {
+        "request": request,
+        "user": user
+    })
+
+
+@app.get("/resourcepacks", response_class=HTMLResponse)
+async def resourcepacks_page(
+    request: Request,
+    user: Optional[User] = Depends(get_current_user_optional)
+):
+    """Página de gestión de resource packs"""
+    if not user:
+        return RedirectResponse(url="/login")
+    
+    return templates.TemplateResponse("resourcepacks.html", {
         "request": request,
         "user": user
     })
