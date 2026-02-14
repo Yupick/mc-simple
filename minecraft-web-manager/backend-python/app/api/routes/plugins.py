@@ -1,7 +1,7 @@
 """Router de gestión de plugins"""
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from typing import List
-from app.core.deps import require_any_role, require_moderator, require_admin, get_current_user, get_db
+from app.core.deps import require_any_role, require_moderator, require_admin, get_db
 from app.schemas.schemas import PluginInfo, MessageResponse
 from app.services.plugin_service import plugin_service
 from app.api.controllers.plugins_controller import PluginsController
