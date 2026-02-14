@@ -111,9 +111,9 @@ class ResourcePackService:
             for pack_file in self.mixer_path.glob("*.zip"):
                 stat = pack_file.stat()
                 packs.append({
-                    "filename": pack_file.name,
+                    "name": pack_file.name,  # Cambiado de "filename" a "name"
                     "size": stat.st_size,
-                    "uploaded_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    "modified": int(stat.st_mtime),  # Cambiado a timestamp en segundos
                     "in_priority": pack_file.stem in priority_order
                 })
             
@@ -244,7 +244,7 @@ class ResourcePackService:
                 return {
                     "exists": False,
                     "size": 0,
-                    "generated_at": None,
+                    "modified": None,
                     "sha1": None
                 }
             
@@ -260,13 +260,13 @@ class ResourcePackService:
             return {
                 "exists": True,
                 "size": stat.st_size,
-                "generated_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                "modified": int(stat.st_mtime),  # Timestamp en segundos
                 "sha1": sha1,
                 "path": str(output_zip)
             }
         except Exception as e:
             print(f"Error getting output info: {e}")
-            return {"exists": False, "size": 0, "generated_at": None, "sha1": None}
+            return {"exists": False, "size": 0, "modified": None, "sha1": None}
     
     async def reload_plugin(self) -> bool:
         """Recargar plugin vía comando RCON"""

@@ -22,7 +22,7 @@ class PluginToggle(BaseModel):
     enabled: bool
 
 
-@router.get("/resourcepacks/status")
+@router.get("/status")
 async def get_status():
     """Obtener estado del plugin ResourcePackManager"""
     try:
@@ -32,7 +32,7 @@ async def get_status():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/resourcepacks/config")
+@router.get("/config")
 async def get_config():
     """Obtener configuración actual de config.yml"""
     try:
@@ -50,7 +50,7 @@ async def get_config():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.put("/resourcepacks/config")
+@router.put("/config")
 async def update_config(data: ConfigUpdate):
     """Actualizar configuración de config.yml"""
     try:
@@ -78,7 +78,7 @@ async def update_config(data: ConfigUpdate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.put("/resourcepacks/priority")
+@router.put("/priority")
 async def update_priority(data: PriorityUpdate):
     """Actualizar orden de prioridad"""
     try:
@@ -97,7 +97,7 @@ async def update_priority(data: PriorityUpdate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/resourcepacks/packs")
+@router.get("/packs")
 async def list_packs():
     """Listar resource packs en mixer/"""
     try:
@@ -112,7 +112,7 @@ async def list_packs():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/resourcepacks/packs")
+@router.post("/packs")
 async def upload_pack(file: UploadFile = File(...)):
     """Subir nuevo resource pack a mixer/"""
     try:
@@ -145,7 +145,7 @@ async def upload_pack(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/resourcepacks/packs/{filename}")
+@router.delete("/packs/{filename}")
 async def delete_pack(filename: str):
     """Eliminar resource pack de mixer/"""
     try:
@@ -164,7 +164,7 @@ async def delete_pack(filename: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/resourcepacks/plugins")
+@router.get("/plugins")
 async def list_compatible_plugins():
     """Listar plugins compatibles detectados"""
     try:
@@ -179,7 +179,7 @@ async def list_compatible_plugins():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.put("/resourcepacks/plugins/{plugin_name}")
+@router.put("/plugins/{plugin_name}")
 async def toggle_plugin(plugin_name: str, data: PluginToggle):
     """Habilitar/deshabilitar plugin compatible"""
     try:
@@ -199,7 +199,7 @@ async def toggle_plugin(plugin_name: str, data: PluginToggle):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/resourcepacks/collisions")
+@router.get("/collisions")
 async def get_collisions():
     """Obtener log de colisiones"""
     try:
@@ -214,7 +214,7 @@ async def get_collisions():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/resourcepacks/output")
+@router.get("/output")
 async def get_output_info():
     """Obtener información del pack final generado"""
     try:
@@ -229,7 +229,7 @@ async def get_output_info():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/resourcepacks/reload")
+@router.post("/reload")
 async def reload_plugin():
     """Recargar plugin vía comando RCON"""
     try:
@@ -248,7 +248,7 @@ async def reload_plugin():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/resourcepacks/install")
+@router.post("/install")
 async def install_plugin():
     """Descargar e instalar plugin desde Modrinth"""
     try:

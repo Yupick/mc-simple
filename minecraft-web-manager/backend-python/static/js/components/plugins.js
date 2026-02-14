@@ -38,11 +38,15 @@ function pluginsManager() {
         async fetchRecommendedPlugins() {
             try {
                 const token = localStorage.getItem('token');
+                console.log('Fetching recommended plugins with token:', token ? 'exists' : 'missing');
                 const res = await fetch('/api/plugins/recommended', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+                console.log('Response status:', res.status);
                 const data = await res.json();
+                console.log('Response data:', data);
                 this.recommendedPlugins = data.plugins || [];
+                console.log('Recommended plugins array:', this.recommendedPlugins);
                 // Re-inicializar iconos de Lucide después de cargar
                 setTimeout(() => {
                     if (typeof lucide !== 'undefined') {
@@ -287,3 +291,11 @@ function pluginsManager() {
         }
     }
 }
+
+// Registrar el componente cuando Alpine se inicialice
+document.addEventListener('alpine:init', () => {
+    console.log('Alpine initialized, pluginsManager available');
+});
+
+// También asegurar que esté disponible globalmente
+window.pluginsManager = pluginsManager;

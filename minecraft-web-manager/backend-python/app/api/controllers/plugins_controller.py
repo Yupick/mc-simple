@@ -1,3 +1,4 @@
+import json
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -123,7 +124,7 @@ class PluginsController:
                 action="install_recommended_plugin",
                 resource_type="plugin",
                 resource_id=plugin_id,
-                details=result
+                details=json.dumps(result)
             )
             db.add(audit)
             db.commit()
@@ -159,7 +160,7 @@ class PluginsController:
                 action="uninstall_recommended_plugin",
                 resource_type="plugin",
                 resource_id=plugin_id,
-                details=result
+                details=json.dumps(result)
             )
             db.add(audit)
             db.commit()

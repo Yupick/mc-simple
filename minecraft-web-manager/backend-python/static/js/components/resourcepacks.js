@@ -385,3 +385,11 @@ function resourcePacksManager() {
         }
     };
 }
+
+// Registrar componente globalmente para Alpine.js
+window.resourcePacksManager = resourcePacksManager;
+
+// Log cuando Alpine se inicialice
+document.addEventListener('alpine:init', () => {
+    console.log('Alpine initialized, resourcePacksManager available');
+});

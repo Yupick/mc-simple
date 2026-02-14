@@ -13,6 +13,7 @@ from app.core.deps import get_current_user_optional
 from app.models.user import User
 from app.api.routes import auth, server, worlds, plugins, backups, config, system, users, console, admins, resourcepacks
 from app.services.websocket_service import WebSocketService
+from app.services.recommended_plugins_service import recommended_plugins_service
 
 # Crear aplicación FastAPI
 app = FastAPI(
@@ -176,9 +177,13 @@ async def plugins_page(
     if not user:
         return RedirectResponse(url="/login")
     
+    # Obtener plugins recomendados desde el servidor
+    recommended = recommended_plugins_service.get_recommended_plugins()
+    
     return templates.TemplateResponse("plugins.html", {
         "request": request,
-        "user": user
+        "user": user,
+        "recommended_plugins": recommended
     })
 
 

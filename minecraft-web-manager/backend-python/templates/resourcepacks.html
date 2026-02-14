@@ -4,6 +4,10 @@
 {% block page_title %}Resource Pack Manager{% endblock %}
 {% block page_description %}Gestionar resource packs con ResourcePackManager{% endblock %}
 
+{% block page_scripts %}
+<script src="/static/js/components/resourcepacks.js"></script>
+{% endblock %}
+
 {% block content %}
 <div x-data="resourcePacksManager()" x-init="init()">
     <!-- Aviso de limitación -->
