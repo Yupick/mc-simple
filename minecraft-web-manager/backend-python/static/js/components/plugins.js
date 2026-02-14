@@ -2,6 +2,8 @@
 function pluginsManager() {
     return {
         plugins: [],
+        recommendedPlugins: [],
+        installingPlugin: null,
         loading: false,
         uploadModal: {
             open: false,
@@ -14,7 +16,14 @@ function pluginsManager() {
         },
         
         async init() {
-            await this.fetchPlugins();
+            await Promise.all([
+                this.fetchPlugins(),
+                this.fetchRecommendedPlugins()
+            ]);
+            // Re-inicializar iconos de Lucide
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
         },
         
         async fetchPlugins() {
@@ -24,6 +33,90 @@ function pluginsManager() {
             } catch (e) {
                 console.error('Error fetching plugins:', e);
             }
+        },
+        
+        async fetchRecommendedPlugins() {
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch('/api/plugins/recommended', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                this.recommendedPlugins = data.plugins || [];
+                // Re-inicializar iconos de Lucide después de cargar
+                setTimeout(() => {
+                    if (typeof lucide !== 'undefined') {
+                        lucide.createIcons();
+                    }
+                }, 100);
+            } catch (e) {
+                console.error('Error fetching recommended plugins:', e);
+            }
+        },
+        
+        async refreshRecommended() {
+            await this.fetchRecommendedPlugins();
+        },
+        
+        async installRecommendedPlugin(pluginId) {
+            if (!confirm('¿Instalar este plugin? Requerirá reiniciar el servidor para aplicar cambios.')) {
+                return;
+            }
+            
+            this.installingPlugin = pluginId;
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(`/api/plugins/recommended/${pluginId}/install`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    this.showNotification(data.message || 'Plugin instalado correctamente. Reinicia el servidor.', 'success');
+                    await this.fetchRecommendedPlugins();
+                    await this.fetchPlugins();
+                } else {
+                    this.showNotification(data.detail || 'Error al instalar plugin', 'error');
+                }
+            } catch (e) {
+                console.error('Error installing plugin:', e);
+                this.showNotification('Error al instalar plugin', 'error');
+            } finally {
+                this.installingPlugin = null;
+            }
+        },
+        
+        async uninstallRecommendedPlugin(pluginId) {
+            if (!confirm('¿Desinstalar este plugin? Esto eliminará el archivo JAR y sus datos.')) {
+                return;
+            }
+            
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(`/api/plugins/recommended/${pluginId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    this.showNotification(data.message || 'Plugin desinstalado correctamente', 'success');
+                    await this.fetchRecommendedPlugins();
+                    await this.fetchPlugins();
+                } else {
+                    this.showNotification(data.detail || 'Error al desinstalar plugin', 'error');
+                }
+            } catch (e) {
+                console.error('Error uninstalling plugin:', e);
+                this.showNotification('Error al desinstalar plugin', 'error');
+            }
+        },
+        
+        goToWebInterface(route) {
+            window.location.href = route;
         },
         
         async togglePlugin(pluginName) {
@@ -182,6 +275,15 @@ function pluginsManager() {
             }
             const mb = kb / 1024;
             return `${mb.toFixed(2)} MB`;
+        },
+        
+        showNotification(message, type = 'info') {
+            // Usar sistema de notificaciones existente si está disponible
+            if (typeof showToast === 'function') {
+                showToast(message, type);
+            } else {
+                alert(message);
+            }
         }
     }
 }
