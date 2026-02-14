@@ -374,34 +374,6 @@ function resourcePacksManager() {
             }
         },
 
-        // Instalar plugin
-        async installPlugin() {
-            if (!confirm('¿Descargar e instalar ResourcePackManager desde Modrinth? Requerirá reiniciar el servidor.')) return;
-            
-            try {
-                this.loading = true;
-                const response = await fetch('/api/resourcepacks/install', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                });
-                
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.detail || 'Error al instalar');
-                }
-                
-                this.showNotification('Plugin instalado. Reinicia el servidor para aplicar cambios.', 'success');
-                await this.loadStatus();
-            } catch (error) {
-                console.error('Error:', error);
-                this.showNotification(error.message, 'error');
-            } finally {
-                this.loading = false;
-            }
-        },
-
         // Notificaciones
         showNotification(message, type = 'info') {
             // Usar sistema de notificaciones existente si está disponible
