@@ -232,4 +232,57 @@ Este script es de código abierto. El servidor Paper y los plugins tienen sus pr
 
 ---
 
+## 🌿 Flujo de Desarrollo (GitFlow)
+
+Este proyecto usa **GitFlow** para gestión ordenada de versiones y desarrollo.
+
+### 📌 Estructura de Ramas
+
+- **`main`**: Código en producción, 100% estable
+- **`develop`**: Rama de integración, último código desarrollado
+- **`feature/*`**: Nuevas funcionalidades
+- **`release/*`**: Preparación de versiones  
+- **`hotfix/*`**: Correcciones urgentes en producción
+
+### 🚀 Contribuir
+
+1. **Fork** del repositorio
+2. **Crear feature branch**:
+   ```bash
+   git checkout develop
+   git checkout -b feature/mi-funcionalidad
+   ```
+3. **Commits con convención**:
+   ```bash
+   git commit -m "feat(scope): descripción"
+   ```
+4. **Push y Pull Request**:
+   ```bash
+   git push origin feature/mi-funcionalidad
+   ```
+   Crear PR hacia `develop` en GitHub
+
+### 📝 Convención de Commits
+
+- `feat`: Nueva funcionalidad
+- `fix`: Corrección de bug
+- `docs`: Documentación
+- `style`: Formato, estilos
+- `refactor`: Refactorización
+- `perf`: Mejora de rendimiento
+- `test`: Tests
+- `chore`: Mantenimiento, configuración
+
+### 📦 Versionado
+
+Usamos [Semantic Versioning](https://semver.org/lang/es/): `vMAJOR.MINOR.PATCH`
+
+- **MAJOR**: Cambios incompatibles
+- **MINOR**: Nueva funcionalidad compatible
+- **PATCH**: Correcciones de bugs
+
+Ver [CHANGELOG.md](CHANGELOG.md) para historial completo.
+
+---
+
 **¿Necesitas ayuda?** Revisa los logs del servidor con `./manage-control.sh logs` o ejecuta `./manage-control.sh status` para ver el estado actual.
