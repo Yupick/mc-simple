@@ -37,13 +37,14 @@
                     </div>
                     
                     <div class="flex space-x-2">
-                        <!-- Botón de configuración para ResourcePackManager -->
-                        <a x-show="plugin.name === 'ResourcePackManager.jar'" 
-                           href="/resourcepacks"
-                           class="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition"
-                           title="Configurar">
-                            <i data-lucide="settings" class="w-4 h-4"></i>
-                        </a>
+                        <!-- Botón de configuración para plugins con panel -->
+                        <template x-if="configRoutes[plugin.name]">
+                            <a :href="configRoutes[plugin.name]"
+                               class="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition"
+                               title="Configurar">
+                                <i data-lucide="settings" class="w-4 h-4"></i>
+                            </a>
+                        </template>
                         
                         <button @click="togglePlugin(plugin.name)" 
                                 :class="plugin.enabled ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-green-600 hover:bg-green-700'"

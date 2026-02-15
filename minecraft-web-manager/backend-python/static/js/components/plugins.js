@@ -5,6 +5,17 @@ function pluginsManager() {
         recommendedPlugins: [],
         installingPlugin: null,
         loading: false,
+        configRoutes: {
+            'ResourcePackManager': '/resourcepacks',
+            'WorldEdit': '/mmorpg/worldedit',
+            'LuckPerms': '/mmorpg/luckperms',
+            'WorldGuard': '/mmorpg/worldguard',
+            'Quests': '/mmorpg/quests',
+            'Jobs': '/mmorpg/jobs',
+            'Shopkeepers': '/mmorpg/shopkeepers',
+            'MythicMobs': '/mmorpg/mythicmobs',
+            'Citizens': '/mmorpg/citizens'
+        },
         uploadModal: {
             open: false,
             uploading: false,

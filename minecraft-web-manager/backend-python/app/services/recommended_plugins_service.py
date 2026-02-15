@@ -160,6 +160,167 @@ class RecommendedPluginsService:
                     "Requiere Geyser instalado",
                     "Jugadores Bedrock tienen prefijo . en su nombre"
                 ]
+            },
+            {
+                "id": "worldedit",
+                "name": "WorldEdit",
+                "description": "Herramientas de edición masiva de mundos y regiones",
+                "source": "modrinth",
+                "source_id": "worldedit",
+                "jar_name": "WorldEdit.jar",
+                "version": None,
+                "installed": False,
+                "has_web_integration": True,
+                "web_route": "/mmorpg/worldedit",
+                "features": [
+                    "Edición masiva",
+                    "Selecciones avanzadas",
+                    "Historial de cambios"
+                ],
+                "limitations": [
+                    "Requiere permisos adecuados"
+                ]
+            },
+            {
+                "id": "luckperms",
+                "name": "LuckPerms",
+                "description": "Sistema de permisos avanzado y escalable",
+                "source": "modrinth",
+                "source_id": "luckperms",
+                "jar_name": "LuckPerms.jar",
+                "version": None,
+                "installed": False,
+                "has_web_integration": True,
+                "web_route": "/mmorpg/luckperms",
+                "features": [
+                    "Permisos y grupos",
+                    "Herencia flexible",
+                    "Backend SQLite/SQL"
+                ],
+                "limitations": [
+                    "Requiere configuración inicial"
+                ]
+            },
+            {
+                "id": "worldguard",
+                "name": "WorldGuard",
+                "description": "Protección de regiones y control de flags",
+                "source": "modrinth",
+                "source_id": "worldguard",
+                "jar_name": "WorldGuard.jar",
+                "version": None,
+                "installed": False,
+                "has_web_integration": True,
+                "web_route": "/mmorpg/worldguard",
+                "features": [
+                    "Regiones protegidas",
+                    "Flags avanzados",
+                    "Integración con WorldEdit"
+                ],
+                "limitations": [
+                    "Requiere WorldEdit"
+                ]
+            },
+            {
+                "id": "quests",
+                "name": "Quests",
+                "description": "Sistema de misiones con dialogos y recompensas",
+                "source": "modrinth",
+                "source_id": "quests",
+                "jar_name": "Quests.jar",
+                "version": None,
+                "installed": False,
+                "has_web_integration": True,
+                "web_route": "/mmorpg/quests",
+                "features": [
+                    "Misiones configurables",
+                    "NPCs y objetivos",
+                    "Recompensas" 
+                ],
+                "limitations": [
+                    "Requiere configuracion previa"
+                ]
+            },
+            {
+                "id": "jobs",
+                "name": "Jobs Reborn",
+                "description": "Sistema de trabajos con pagos y progresion",
+                "source": "modrinth",
+                "source_id": "jobs-reborn",
+                "jar_name": "Jobs.jar",
+                "data_folder": "Jobs",
+                "version": None,
+                "installed": False,
+                "has_web_integration": True,
+                "web_route": "/mmorpg/jobs",
+                "features": [
+                    "Trabajos y niveles",
+                    "Economia integrada",
+                    "Multiples acciones" 
+                ],
+                "limitations": [
+                    "Requiere Vault/LuckPerms"
+                ]
+            },
+            {
+                "id": "shopkeepers",
+                "name": "Shopkeepers",
+                "description": "NPCs de tienda personalizables",
+                "source": "modrinth",
+                "source_id": "shopkeepers",
+                "jar_name": "Shopkeepers.jar",
+                "version": None,
+                "installed": False,
+                "has_web_integration": True,
+                "web_route": "/mmorpg/shopkeepers",
+                "features": [
+                    "Tiendas con NPC",
+                    "Soporte de economia",
+                    "Configuracion flexible"
+                ],
+                "limitations": [
+                    "Requiere plugin de economia"
+                ]
+            },
+            {
+                "id": "mythicmobs",
+                "name": "MythicMobs",
+                "description": "Mobs personalizados, habilidades y bosses",
+                "source": "modrinth",
+                "source_id": "mythicmobs",
+                "jar_name": "MythicMobs.jar",
+                "version": None,
+                "installed": False,
+                "has_web_integration": True,
+                "web_route": "/mmorpg/mythicmobs",
+                "features": [
+                    "Mobs custom",
+                    "Skills avanzadas",
+                    "Soporte de drops" 
+                ],
+                "limitations": [
+                    "Curva de configuracion alta"
+                ]
+            },
+            {
+                "id": "citizens",
+                "name": "Citizens",
+                "description": "NPCs avanzados para servidores RPG",
+                "source": "modrinth",
+                "source_id": "citizens",
+                "jar_name": "Citizens.jar",
+                "version": None,
+                "installed": False,
+                "has_web_integration": True,
+                "web_route": "/mmorpg/citizens",
+                "features": [
+                    "NPCs configurables",
+                    "Skins y rutas",
+                    "Integracion con quests" 
+                ],
+                "limitations": [
+                    "Requiere configuracion por comandos"
+                ]
             }
         ]
         
@@ -344,7 +505,8 @@ class RecommendedPluginsService:
             jar_path.unlink()
             
             # Eliminar carpeta de datos si existe
-            plugin_folder = self.plugins_path / plugin_info["name"]
+            folder_name = plugin_info.get("data_folder", plugin_info["name"])
+            plugin_folder = self.plugins_path / folder_name
             if plugin_folder.exists():
                 import shutil
                 shutil.rmtree(plugin_folder)
