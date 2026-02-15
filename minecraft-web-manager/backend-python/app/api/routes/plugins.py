@@ -1,11 +1,14 @@
 """Router de gestión de plugins"""
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from typing import List
-from app.core.deps import require_any_role, require_moderator, require_admin
+from app.core.deps import require_any_role, require_moderator, require_admin, get_db
 from app.schemas.schemas import PluginInfo, MessageResponse
 from app.services.plugin_service import plugin_service
+from app.api.controllers.plugins_controller import PluginsController
+from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/api/plugins", tags=["plugins"])
+plugins_controller = PluginsController()
 
 
 @router.get("/", response_model=List[PluginInfo])
@@ -47,3 +50,31 @@ async def delete_plugin(plugin_name: str, current_user = Depends(require_admin))
     """Eliminar plugin"""
     result = await plugin_service.delete_plugin(plugin_name)
     return result
+
+
+# Rutas para plugins recomendados
+@router.get("/recommended")
+async def get_recommended_plugins(current_user = Depends(require_any_role)):
+    """Obtener lista de plugins recomendados con estado de instalación"""
+    return await plugins_controller.get_recommended()
+
+
+@router.post("/recommended/{plugin_id}/install")
+async def install_recommended_plugin(
+    plugin_id: str,
+    current_user = Depends(require_moderator),
+    db: Session = Depends(get_db)
+):
+    """Instalar plugin recomendado desde Modrinth"""
+    return await plugins_controller.install_recommended(plugin_id, current_user.id, db)
+
+
+@router.delete("/recommended/{plugin_id}")
+async def uninstall_recommended_plugin(
+    plugin_id: str,
+    current_user = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Desinstalar plugin recomendado"""
+    return await plugins_controller.uninstall_recommended(plugin_id, current_user.id, db)
+

@@ -2,7 +2,20 @@
 function pluginsManager() {
     return {
         plugins: [],
+        recommendedPlugins: [],
+        installingPlugin: null,
         loading: false,
+        configRoutes: {
+            'ResourcePackManager': '/resourcepacks',
+            'WorldEdit': '/mmorpg/worldedit',
+            'LuckPerms': '/mmorpg/luckperms',
+            'WorldGuard': '/mmorpg/worldguard',
+            'Quests': '/mmorpg/quests',
+            'Jobs': '/mmorpg/jobs',
+            'Shopkeepers': '/mmorpg/shopkeepers',
+            'MythicMobs': '/mmorpg/mythicmobs',
+            'Citizens': '/mmorpg/citizens'
+        },
         uploadModal: {
             open: false,
             uploading: false,
@@ -14,7 +27,14 @@ function pluginsManager() {
         },
         
         async init() {
-            await this.fetchPlugins();
+            await Promise.all([
+                this.fetchPlugins(),
+                this.fetchRecommendedPlugins()
+            ]);
+            // Re-inicializar iconos de Lucide
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
         },
         
         async fetchPlugins() {
@@ -24,6 +44,94 @@ function pluginsManager() {
             } catch (e) {
                 console.error('Error fetching plugins:', e);
             }
+        },
+        
+        async fetchRecommendedPlugins() {
+            try {
+                const token = localStorage.getItem('token');
+                console.log('Fetching recommended plugins with token:', token ? 'exists' : 'missing');
+                const res = await fetch('/api/plugins/recommended', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                console.log('Response status:', res.status);
+                const data = await res.json();
+                console.log('Response data:', data);
+                this.recommendedPlugins = data.plugins || [];
+                console.log('Recommended plugins array:', this.recommendedPlugins);
+                // Re-inicializar iconos de Lucide después de cargar
+                setTimeout(() => {
+                    if (typeof lucide !== 'undefined') {
+                        lucide.createIcons();
+                    }
+                }, 100);
+            } catch (e) {
+                console.error('Error fetching recommended plugins:', e);
+            }
+        },
+        
+        async refreshRecommended() {
+            await this.fetchRecommendedPlugins();
+        },
+        
+        async installRecommendedPlugin(pluginId) {
+            if (!confirm('¿Instalar este plugin? Requerirá reiniciar el servidor para aplicar cambios.')) {
+                return;
+            }
+            
+            this.installingPlugin = pluginId;
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(`/api/plugins/recommended/${pluginId}/install`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    this.showNotification(data.message || 'Plugin instalado correctamente. Reinicia el servidor.', 'success');
+                    await this.fetchRecommendedPlugins();
+                    await this.fetchPlugins();
+                } else {
+                    this.showNotification(data.detail || 'Error al instalar plugin', 'error');
+                }
+            } catch (e) {
+                console.error('Error installing plugin:', e);
+                this.showNotification('Error al instalar plugin', 'error');
+            } finally {
+                this.installingPlugin = null;
+            }
+        },
+        
+        async uninstallRecommendedPlugin(pluginId) {
+            if (!confirm('¿Desinstalar este plugin? Esto eliminará el archivo JAR y sus datos.')) {
+                return;
+            }
+            
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(`/api/plugins/recommended/${pluginId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    this.showNotification(data.message || 'Plugin desinstalado correctamente', 'success');
+                    await this.fetchRecommendedPlugins();
+                    await this.fetchPlugins();
+                } else {
+                    this.showNotification(data.detail || 'Error al desinstalar plugin', 'error');
+                }
+            } catch (e) {
+                console.error('Error uninstalling plugin:', e);
+                this.showNotification('Error al desinstalar plugin', 'error');
+            }
+        },
+        
+        goToWebInterface(route) {
+            window.location.href = route;
         },
         
         async togglePlugin(pluginName) {
@@ -182,6 +290,23 @@ function pluginsManager() {
             }
             const mb = kb / 1024;
             return `${mb.toFixed(2)} MB`;
+        },
+        
+        showNotification(message, type = 'info') {
+            // Usar sistema de notificaciones existente si está disponible
+            if (typeof showToast === 'function') {
+                showToast(message, type);
+            } else {
+                alert(message);
+            }
         }
     }
 }
+
+// Registrar el componente cuando Alpine se inicialice
+document.addEventListener('alpine:init', () => {
+    console.log('Alpine initialized, pluginsManager available');
+});
+
+// También asegurar que esté disponible globalmente
+window.pluginsManager = pluginsManager;
