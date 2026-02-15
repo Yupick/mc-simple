@@ -20,7 +20,7 @@ from app.services.mmorpg_service import mmorpg_service
 app = FastAPI(
     title="Minecraft Manager",
     description="Sistema de gestión para servidor Minecraft Paper",
-    version="2.0.0"
+    version="1.2.0"
 )
 
 # CORS
