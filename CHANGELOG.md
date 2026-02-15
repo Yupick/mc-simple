@@ -9,6 +9,16 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 Cambios en desarrollo que aún no están en producción.
 
+## [1.2.0] - 2026-02-15
+
+### Added
+- Paneles de configuración MMORPG con editor RAW y visual
+- Sección MMORPG en el menú lateral con aparición dinámica
+- Plugins recomendados MMORPG (WorldEdit, LuckPerms, WorldGuard, Quests, Jobs Reborn, Shopkeepers, MythicMobs, Citizens)
+
+### Fixed
+- Integración de rutas y sidebar para nuevos paneles de configuración
+
 ## [1.0.0] - 2026-02-14
 
 ### Added
