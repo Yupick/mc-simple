@@ -44,6 +44,50 @@
             <span>Usuarios</span>
         </a>
         
+        <a href="/resourcepacks" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1" id="resourcepacks-link" style="display: none;">
+            <i data-lucide="package" class="w-5 h-5 mr-3"></i>
+            <span>Resource Packs</span>
+        </a>
+
+        <!-- MMORPG Section (solo si hay plugins activos) -->
+        <div class="mt-6 mb-2" id="mmorpg-title" style="display: none;">
+            <h3 class="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">MMORPG</h3>
+        </div>
+        <div id="mmorpg-section" style="display: none;">
+            <a href="/mmorpg/worldedit" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1" id="mmorpg-worldedit-link" style="display: none;">
+                <i data-lucide="move-3d" class="w-5 h-5 mr-3"></i>
+                <span>WorldEdit</span>
+            </a>
+            <a href="/mmorpg/luckperms" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1" id="mmorpg-luckperms-link" style="display: none;">
+                <i data-lucide="shield-check" class="w-5 h-5 mr-3"></i>
+                <span>LuckPerms</span>
+            </a>
+            <a href="/mmorpg/worldguard" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1" id="mmorpg-worldguard-link" style="display: none;">
+                <i data-lucide="shield" class="w-5 h-5 mr-3"></i>
+                <span>WorldGuard</span>
+            </a>
+            <a href="/mmorpg/quests" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1" id="mmorpg-quests-link" style="display: none;">
+                <i data-lucide="map" class="w-5 h-5 mr-3"></i>
+                <span>Quests</span>
+            </a>
+            <a href="/mmorpg/jobs" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1" id="mmorpg-jobs-link" style="display: none;">
+                <i data-lucide="briefcase" class="w-5 h-5 mr-3"></i>
+                <span>Jobs Reborn</span>
+            </a>
+            <a href="/mmorpg/shopkeepers" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1" id="mmorpg-shopkeepers-link" style="display: none;">
+                <i data-lucide="store" class="w-5 h-5 mr-3"></i>
+                <span>Shopkeepers</span>
+            </a>
+            <a href="/mmorpg/mythicmobs" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1" id="mmorpg-mythicmobs-link" style="display: none;">
+                <i data-lucide="skull" class="w-5 h-5 mr-3"></i>
+                <span>MythicMobs</span>
+            </a>
+            <a href="/mmorpg/citizens" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1" id="mmorpg-citizens-link" style="display: none;">
+                <i data-lucide="user" class="w-5 h-5 mr-3"></i>
+                <span>Citizens</span>
+            </a>
+        </div>
+        
         <!-- Administración Section -->
         <div class="mt-6 mb-2">
             <h3 class="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Administración</h3>
@@ -91,5 +135,90 @@
 function logout() {
     fetch('/api/auth/logout', { method: 'POST' })
         .then(() => window.location.href = '/login');
+}
+
+// Verificar si ResourcePackManager está instalado
+async function checkResourcePackPlugin() {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/resourcepacks/status', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            const link = document.getElementById('resourcepacks-link');
+            if (link && data.installed) {
+                link.style.display = 'flex';
+                // Re-inicializar iconos de Lucide
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
+            }
+        }
+    } catch (error) {
+        console.log('ResourcePackManager no disponible');
+    }
+}
+
+// Verificar plugins MMORPG activos
+async function checkMMORPGPlugins() {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/mmorpg/status', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) {
+            return;
+        }
+
+        const data = await response.json();
+        const status = data.status || {};
+        const anyEnabled = data.any_enabled;
+
+        const title = document.getElementById('mmorpg-title');
+        const section = document.getElementById('mmorpg-section');
+
+        if (title && section) {
+            title.style.display = anyEnabled ? 'block' : 'none';
+            section.style.display = anyEnabled ? 'block' : 'none';
+        }
+
+        const mapping = {
+            worldedit: 'mmorpg-worldedit-link',
+            luckperms: 'mmorpg-luckperms-link',
+            worldguard: 'mmorpg-worldguard-link',
+            quests: 'mmorpg-quests-link',
+            jobs: 'mmorpg-jobs-link',
+            shopkeepers: 'mmorpg-shopkeepers-link',
+            mythicmobs: 'mmorpg-mythicmobs-link',
+            citizens: 'mmorpg-citizens-link'
+        };
+
+        Object.keys(mapping).forEach((key) => {
+            const link = document.getElementById(mapping[key]);
+            if (!link) return;
+            const enabled = status[key] && status[key].enabled;
+            link.style.display = enabled ? 'flex' : 'none';
+        });
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    } catch (error) {
+        console.log('Plugins MMORPG no disponibles');
+    }
+}
+
+// Ejecutar al cargar
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        checkResourcePackPlugin();
+        checkMMORPGPlugins();
+    });
+} else {
+    checkResourcePackPlugin();
+    checkMMORPGPlugins();
 }
 </script>

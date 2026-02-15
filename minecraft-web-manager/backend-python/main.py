@@ -11,14 +11,16 @@ from typing import Optional
 from app.core.config import settings
 from app.core.deps import get_current_user_optional
 from app.models.user import User
-from app.api.routes import auth, server, worlds, plugins, backups, config, system, users, console, admins
+from app.api.routes import auth, server, worlds, plugins, backups, config, system, users, console, admins, resourcepacks, mmorpg
 from app.services.websocket_service import WebSocketService
+from app.services.recommended_plugins_service import recommended_plugins_service
+from app.services.mmorpg_service import mmorpg_service
 
 # Crear aplicación FastAPI
 app = FastAPI(
     title="Minecraft Manager",
     description="Sistema de gestión para servidor Minecraft Paper",
-    version="2.0.0"
+    version="1.2.0"
 )
 
 # CORS
@@ -49,6 +51,8 @@ app.include_router(system.router)
 app.include_router(users.router, prefix="/api")
 app.include_router(console.router, prefix="/api")
 app.include_router(admins.router, prefix="/api")
+app.include_router(resourcepacks.router, prefix="/api")
+app.include_router(mmorpg.router, prefix="/api")
 
 # Socket.IO
 sio = socketio.AsyncServer(
@@ -175,9 +179,13 @@ async def plugins_page(
     if not user:
         return RedirectResponse(url="/login")
     
+    # Obtener plugins recomendados desde el servidor
+    recommended = recommended_plugins_service.get_recommended_plugins()
+    
     return templates.TemplateResponse("plugins.html", {
         "request": request,
-        "user": user
+        "user": user,
+        "recommended_plugins": recommended
     })
 
 
@@ -238,6 +246,42 @@ async def admins_page(
     return templates.TemplateResponse("admins.html", {
         "request": request,
         "user": user
+    })
+
+
+@app.get("/resourcepacks", response_class=HTMLResponse)
+async def resourcepacks_page(
+    request: Request,
+    user: Optional[User] = Depends(get_current_user_optional)
+):
+    """Página de gestión de resource packs"""
+    if not user:
+        return RedirectResponse(url="/login")
+    
+    return templates.TemplateResponse("resourcepacks.html", {
+        "request": request,
+        "user": user
+    })
+
+
+@app.get("/mmorpg/{plugin_id}", response_class=HTMLResponse)
+async def mmorpg_plugin_page(
+    request: Request,
+    plugin_id: str,
+    user: Optional[User] = Depends(get_current_user_optional)
+):
+    """Página de configuración para plugins MMORPG"""
+    if not user:
+        return RedirectResponse(url="/login")
+
+    plugin = mmorpg_service.get_plugin(plugin_id)
+    if not plugin:
+        return RedirectResponse(url="/plugins")
+
+    return templates.TemplateResponse("mmorpg_plugin.html", {
+        "request": request,
+        "user": user,
+        "plugin": plugin
     })
 
 
