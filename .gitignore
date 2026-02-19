@@ -27,6 +27,8 @@ logs/
 *.log
 
 # Server files
+server
+server/logs/
 server/paper.jar
 server/cache/
 server/libraries/
@@ -60,3 +62,6 @@ Thumbs.db
 
 # Directorio completo del servidor Minecraft
 server/
+
+# Carpeta pública de resourcepacks del panel (archivos grandes)
+minecraft-web-manager/static/resourcepacks/
