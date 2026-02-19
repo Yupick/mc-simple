@@ -264,6 +264,22 @@ async def resourcepacks_page(
     })
 
 
+@app.get("/plugins/essentials", response_class=HTMLResponse)
+async def essentials_page(
+    request: Request,
+    user: Optional[User] = Depends(get_current_user_optional)
+):
+    """Página de configuración para EssentialsX"""
+    if not user:
+        return RedirectResponse(url="/login")
+
+    return templates.TemplateResponse("mmorpg/essentials.html", {
+        "request": request,
+        "user": user,
+        "plugin": {"id": "essentials", "name": "EssentialsX"}
+    })
+
+
 @app.get("/mmorpg/{plugin_id}", response_class=HTMLResponse)
 async def mmorpg_plugin_page(
     request: Request,
@@ -277,6 +293,39 @@ async def mmorpg_plugin_page(
     plugin = mmorpg_service.get_plugin(plugin_id)
     if not plugin:
         return RedirectResponse(url="/plugins")
+
+    # Render specialized templates para plugins con interfaz visual
+    if plugin_id == 'worldedit':
+        return templates.TemplateResponse("mmorpg/worldedit.html", {
+            "request": request,
+            "user": user,
+            "plugin": plugin
+        })
+    if plugin_id == 'luckperms':
+        return templates.TemplateResponse("mmorpg/luckperms.html", {
+            "request": request,
+            "user": user,
+            "plugin": plugin
+        })
+    if plugin_id == 'worldguard':
+        return templates.TemplateResponse("mmorpg/worldguard.html", {
+            "request": request,
+            "user": user,
+            "plugin": plugin
+        })
+    if plugin_id == 'quests':
+        return templates.TemplateResponse("mmorpg/quests.html", {
+            "request": request,
+            "user": user,
+            "plugin": plugin
+        })
+
+    if plugin_id == 'mythicmobs':
+        return templates.TemplateResponse("mmorpg/mythicmobs.html", {
+            "request": request,
+            "user": user,
+            "plugin": plugin
+        })
 
     return templates.TemplateResponse("mmorpg_plugin.html", {
         "request": request,

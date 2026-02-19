@@ -242,6 +242,16 @@
 
 <script src="/static/js/components/plugins.js"></script>
 <script>
+// Mapa de info_url para plugins recomendados (si existe)
+const recommendedInfoUrls = {
+    {% for plugin in recommended_plugins %}
+    {% if plugin.info_url %}
+    "{{ plugin.id }}": "{{ plugin.info_url }}",
+    {% endif %}
+    {% endfor %}
+};
+</script>
+<script>
 // Funciones para instalar/desinstalar plugins recomendados
 async function installPlugin(pluginId) {
     if (!confirm('¿Instalar este plugin? Requerirá reiniciar el servidor para aplicar cambios.')) {
@@ -266,7 +276,7 @@ async function installPlugin(pluginId) {
             console.log('✅ Plugin instalado:', data);
             alert(data.message || 'Plugin instalado. Reinicia el servidor para aplicar cambios.');
             location.reload();
-        } else {
+            } else {
             const errorMsg = 'Error: ' + (data.detail || 'No se pudo instalar el plugin');
             console.error('❌ Error al instalar plugin:', data);
             console.error('Response status:', res.status);
@@ -274,6 +284,11 @@ async function installPlugin(pluginId) {
             alert(errorMsg);
             button.disabled = false;
             button.innerHTML = originalText;
+            // Si existe una URL de información/descarga, ofrecer abrirla
+            const infoUrl = recommendedInfoUrls[pluginId];
+            if (infoUrl && confirm('¿Abrir la página de información/descarga del plugin?')) {
+                window.open(infoUrl, '_blank');
+            }
         }
     } catch (error) {
         const errorMsg = 'Error al instalar el plugin: ' + error.message;
@@ -282,6 +297,10 @@ async function installPlugin(pluginId) {
         alert(errorMsg);
         button.disabled = false;
         button.innerHTML = originalText;
+        const infoUrl = recommendedInfoUrls[pluginId];
+        if (infoUrl && confirm('¿Abrir la página de información/descarga del plugin?')) {
+            window.open(infoUrl, '_blank');
+        }
     }
 }
 

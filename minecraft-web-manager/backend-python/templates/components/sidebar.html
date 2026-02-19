@@ -48,6 +48,11 @@
             <i data-lucide="package" class="w-5 h-5 mr-3"></i>
             <span>Resource Packs</span>
         </a>
+        
+        <a href="/plugins/essentials" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1" id="essentials-link" style="display: none;">
+            <i data-lucide="box" class="w-5 h-5 mr-3"></i>
+            <span>EssentialsX</span>
+        </a>
 
         <!-- MMORPG Section (solo si hay plugins activos) -->
         <div class="mt-6 mb-2" id="mmorpg-title" style="display: none;">
@@ -72,7 +77,7 @@
             </a>
             <a href="/mmorpg/jobs" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1" id="mmorpg-jobs-link" style="display: none;">
                 <i data-lucide="briefcase" class="w-5 h-5 mr-3"></i>
-                <span>Jobs Reborn</span>
+                <span>Jobs</span>
             </a>
             <a href="/mmorpg/shopkeepers" class="flex items-center px-4 py-3 text-gray-700 hover:bg-primary-50 hover:text-primary-600 rounded-lg mb-1" id="mmorpg-shopkeepers-link" style="display: none;">
                 <i data-lucide="store" class="w-5 h-5 mr-3"></i>
@@ -161,6 +166,29 @@ async function checkResourcePackPlugin() {
     }
 }
 
+// Verificar EssentialsX (muestra enlace en Gestión si el plugin está instalado y habilitado)
+async function checkEssentialsPlugin() {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/plugins/', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!Array.isArray(data)) return;
+
+        const ess = data.find(p => p.name === 'EssentialsX' || p.name === 'Essentials');
+        const link = document.getElementById('essentials-link');
+        if (link && ess && ess.enabled) {
+            link.style.display = 'flex';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    } catch (e) {
+        console.log('Essentials check failed', e);
+    }
+}
+
 // Verificar plugins MMORPG activos
 async function checkMMORPGPlugins() {
     try {
@@ -215,10 +243,12 @@ async function checkMMORPGPlugins() {
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         checkResourcePackPlugin();
+            checkEssentialsPlugin();
         checkMMORPGPlugins();
     });
 } else {
     checkResourcePackPlugin();
+        checkEssentialsPlugin();
     checkMMORPGPlugins();
 }
 </script>

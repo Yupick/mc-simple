@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}LuckPerms - Configuración{% endblock %}
+{% block page_title %}LuckPerms{% endblock %}
+{% block page_description %}Configuración visual de LuckPerms{% endblock %}
+
+{% block page_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+<script src="/static/js/components/luckperms.js"></script>
+{% endblock %}
+
+{% block content %}
+<div x-data="luckpermsManager()" x-init="init()">
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <div class="flex items-center gap-3">
+            <div class="bg-green-100 p-3 rounded-lg">
+                <i data-lucide="shield" class="w-6 h-6 text-green-600"></i>
+            </div>
+            <div>
+                <h2 class="text-2xl font-bold text-gray-900">LuckPerms</h2>
+                <p class="text-sm text-gray-600">Configuración visual y edición de archivos</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow">
+        <div class="border-b border-gray-200">
+            <nav class="-mb-px flex space-x-8 px-6" aria-label="Tabs">
+                <button @click="activeTab='general'" :class="activeTab==='general' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">General</button>
+                <button @click="activeTab='storage'" :class="activeTab==='storage' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Almacenamiento</button>
+                <button @click="activeTab='sync'" :class="activeTab==='sync' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Sincronización</button>
+                <button @click="activeTab='files'" :class="activeTab==='files' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Archivos</button>
+            </nav>
+        </div>
+
+        <div class="p-6">
+            <div x-show="activeTab==='general'" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="p-4 border border-gray-200 rounded-lg">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Método de almacenamiento <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('storage-method')">?</span></label>
+                        <select x-model="config.storageMethod" class="w-full border border-gray-300 rounded px-3 py-2">
+                            <option value="sqlite">sqlite</option>
+                            <option value="h2">h2</option>
+                            <option value="mysql">mysql</option>
+                            <option value="postgres">postgres</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">El backend usará este método para persistir datos de permisos.</p>
+                    </div>
+
+                    <div class="p-4 border border-gray-200 rounded-lg">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Intervalo de sincronización (seg) <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('sync-interval')">?</span></label>
+                        <input type="number" x-model.number="config.syncInterval" class="w-full border border-gray-300 rounded px-3 py-2" />
+                    </div>
+
+                    <div class="p-4 border border-gray-200 rounded-lg">
+                            <label class="flex items-center gap-3">
+                            <input type="checkbox" x-model="config.verbose" class="rounded" />
+                            <span class="text-sm text-gray-700">Verbose (logs detallados)</span>
+                            <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('verbose')">?</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="flex gap-2">
+                    <button @click="saveConfig()" class="px-4 py-2 bg-blue-600 text-white rounded-lg">Guardar</button>
+                    <button @click="loadConfig()" class="px-4 py-2 bg-gray-100 rounded-lg">Restaurar</button>
+                </div>
+            </div>
+
+            <div x-show="activeTab==='storage'" class="space-y-4 text-sm text-gray-600">
+                <p class="mb-2">Campos de conexión para motores SQL (si aplica).</p>
+                <div x-show="config.storageMethod==='mysql' || config.storageMethod==='postgres'" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="p-3 border border-gray-200 rounded-lg">
+                        <label class="block text-xs text-gray-600">Host</label>
+                        <input type="text" x-model="storage.host" class="w-full border rounded px-2 py-1 text-sm" />
+                    </div>
+                    <div class="p-3 border border-gray-200 rounded-lg">
+                        <label class="block text-xs text-gray-600">Puerto</label>
+                        <input type="number" x-model.number="storage.port" class="w-full border rounded px-2 py-1 text-sm" />
+                    </div>
+                    <div class="p-3 border border-gray-200 rounded-lg">
+                        <label class="block text-xs text-gray-600">Usuario</label>
+                        <input type="text" x-model="storage.user" class="w-full border rounded px-2 py-1 text-sm" />
+                    </div>
+                    <div class="p-3 border border-gray-200 rounded-lg">
+                        <label class="block text-xs text-gray-600">Contraseña</label>
+                        <input type="password" x-model="storage.password" class="w-full border rounded px-2 py-1 text-sm" />
+                    </div>
+                    <div class="p-3 border border-gray-200 rounded-lg">
+                        <label class="block text-xs text-gray-600">Base de datos</label>
+                        <input type="text" x-model="storage.database" class="w-full border rounded px-2 py-1 text-sm" />
+                    </div>
+                </div>
+                <div x-show="config.storageMethod==='sqlite' || config.storageMethod==='h2'" class="text-sm text-gray-500">
+                    <p>Para `sqlite`/`h2` no hay campos remotos, se usa archivo local.</p>
+                </div>
+            </div>
+
+            <div x-show="activeTab==='sync'" class="text-sm text-gray-600">
+                <p>Opciones avanzadas de sincronización y caché (no implementadas visualmente todavía).</p>
+            </div>
+
+            <div x-show="activeTab==='files'">
+                <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                    <div class="lg:col-span-1">
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="font-bold text-gray-900">Archivos</h3>
+                                <span class="text-xs text-gray-500" x-text="files.length + ' archivos'"></span>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="text-xs text-gray-500">Selector</label>
+                                <select class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" @change="openFile($event.target.value)">
+                                    <template x-for="file in files" :key="file.path">
+                                        <option :value="file.path" x-text="file.path" :selected="file.path === activeFile"></option>
+                                    </template>
+                                </select>
+                            </div>
+
+                            <div class="space-y-2 max-h-[420px] overflow-y-auto">
+                                <template x-for="file in files" :key="file.path">
+                                    <button @click="openFile(file.path)" class="w-full text-left px-3 py-2 rounded-lg border transition" :class="file.path === activeFile ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:bg-gray-50'">
+                                        <div class="text-sm font-medium text-gray-800" x-text="file.path"></div>
+                                        <div class="text-xs text-gray-500"><span x-text="(file.size / 1024).toFixed(1) + ' KB'"></span></div>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-3">
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <div class="flex items-center justify-between mb-4">
+                                <div>
+                                    <h3 class="font-bold text-gray-900" x-text="activeFile || 'Selecciona un archivo'"></h3>
+                                    <p class="text-xs text-gray-500">Editor RAW / Visual</p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <select class="border border-gray-200 rounded-lg px-3 py-2 text-sm" x-model="viewMode">
+                                        <option value="raw">RAW</option>
+                                        <option value="visual">Visual</option>
+                                    </select>
+                                    <button @click="saveFile()" :disabled="saving || !activeFile" class="px-4 py-2 rounded-lg text-white bg-green-600 hover:bg-green-700 disabled:opacity-50">
+                                        <span x-text="saving ? 'Guardando...' : 'Guardar'"></span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div x-show="viewMode === 'raw'">
+                                <textarea class="w-full h-[520px] border border-gray-200 rounded-lg p-3 font-mono text-sm" x-model="fileContent"></textarea>
+                            </div>
+
+                            <div x-show="viewMode === 'visual'" class="space-y-4">
+                                <div x-show="formFields.length === 0" class="text-sm text-gray-500">No se pudo generar formulario visual para este archivo.</div>
+                                <template x-for="field in formFields" :key="field.key">
+                                    <div class="border border-gray-200 rounded-lg p-3">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2" x-text="field.key"></label>
+                                        <template x-if="field.type === 'boolean'">
+                                            <label class="inline-flex items-center gap-2"><input type="checkbox" class="rounded border-gray-300" :checked="field.value" @change="updateField(field, $event.target.checked)"><span class="text-sm text-gray-600">Activado</span></label>
+                                        </template>
+                                        <template x-if="field.type === 'number'">
+                                            <input type="number" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" :value="field.value" @input="updateField(field, $event.target.value)">
+                                        </template>
+                                        <template x-if="field.type === 'string'">
+                                            <input type="text" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" :value="field.value" @input="updateField(field, $event.target.value)">
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
