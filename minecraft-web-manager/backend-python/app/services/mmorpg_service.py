@@ -3,6 +3,8 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from app.core.config import settings
+import shutil
+from datetime import datetime
 
 
 class MMORPGService:
@@ -39,7 +41,7 @@ class MMORPGService:
             },
             "jobs": {
                 "id": "jobs",
-                "name": "Jobs Reborn",
+                "name": "Jobs",
                 "jar_name": "Jobs.jar",
                 "folder": "Jobs"
             },
@@ -60,6 +62,13 @@ class MMORPGService:
                 "name": "Citizens",
                 "jar_name": "Citizens.jar",
                 "folder": "Citizens"
+            }
+            ,
+            "essentials": {
+                "id": "essentials",
+                "name": "EssentialsX",
+                "jar_name": "EssentialsX.jar",
+                "folder": "Essentials"
             }
         }
 
@@ -87,6 +96,7 @@ class MMORPGService:
 
         folder = self.plugins_path / info["folder"]
         if not folder.exists():
+            print(f"[mmorpg_service] folder not found: {folder}")
             return []
 
         allowed_ext = {".yml", ".yaml", ".json", ".conf", ".toml", ".txt"}
@@ -109,20 +119,76 @@ class MMORPGService:
             })
 
         files.sort(key=lambda x: x["path"].lower())
+        print(f"[mmorpg_service] list_config_files for {plugin_id}: found {len(files)} files in {folder}")
         return files
 
     def read_config_file(self, plugin_id: str, rel_path: str) -> str:
         """Leer archivo de configuración"""
         file_path = self._resolve_config_path(plugin_id, rel_path)
+        print(f"[mmorpg_service] read_config_file: reading {file_path}")
+        if not file_path.exists():
+            print(f"[mmorpg_service] read_config_file: file not found {file_path}, returning empty content")
+            return ""
         with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
             return f.read()
 
     def write_config_file(self, plugin_id: str, rel_path: str, content: str) -> bool:
         """Guardar archivo de configuración"""
         file_path = self._resolve_config_path(plugin_id, rel_path)
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(content)
-        return True
+        try:
+            # Backup existing file before writing into plugin-specific Backup/ directory
+            bak_dir = file_path.parent / 'Backup'
+            if not bak_dir.exists():
+                bak_dir.mkdir(parents=True, exist_ok=True)
+
+            if file_path.exists():
+                ts = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+                bak_name = f"{file_path.name}.{ts}.bak"
+                bak_path = bak_dir / bak_name
+                print(f"[mmorpg_service] write_config_file: creating backup {bak_path}")
+                shutil.copy(str(file_path), str(bak_path))
+                # Cleanup old backups, keep most recent 3
+                all_baks = sorted([p for p in bak_dir.iterdir() if p.is_file() and p.name.startswith(file_path.name) and p.suffix == '.bak'], key=lambda p: p.stat().st_mtime, reverse=True)
+                for old in all_baks[3:]:
+                    try:
+                        print(f"[mmorpg_service] write_config_file: removing old backup {old}")
+                        old.unlink()
+                    except Exception:
+                        pass
+            # ensure parent exists (allow creating new files and subfolders)
+            if not file_path.parent.exists():
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+            # Try to preserve leading comment block from existing file
+            leading_comments = ''
+            if file_path.exists():
+                try:
+                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as oldf:
+                        old = oldf.read()
+                    lines = old.splitlines(True)
+                    comment_lines = []
+                    for ln in lines:
+                        if ln.lstrip().startswith('#') or ln.strip() == '':
+                            comment_lines.append(ln)
+                        else:
+                            break
+                    leading_comments = ''.join(comment_lines)
+                except Exception:
+                    leading_comments = ''
+
+            # write new content (prepend preserved leading comments)
+            out_content = content
+            if leading_comments:
+                # ensure there's one blank line between comments and content
+                if not content.startswith('\n'):
+                    out_content = leading_comments + '\n' + content
+                else:
+                    out_content = leading_comments + content
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(out_content)
+            return True
+        except Exception as e:
+            print(f"[mmorpg_service] write_config_file error: {e}")
+            raise
 
     def _resolve_config_path(self, plugin_id: str, rel_path: str) -> Path:
         """Resolver ruta de archivo y prevenir path traversal"""
@@ -134,8 +200,7 @@ class MMORPGService:
         target = (folder / rel_path).resolve()
         if not str(target).startswith(str(folder.resolve())):
             raise ValueError("Ruta inválida")
-        if not target.exists() or not target.is_file():
-            raise ValueError("Archivo no encontrado")
+        # Permitimos que el archivo no exista aún (para crear nuevos archivos desde la UI).
         return target
 
 

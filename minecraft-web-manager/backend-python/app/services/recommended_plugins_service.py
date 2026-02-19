@@ -222,6 +222,27 @@ class RecommendedPluginsService:
                 ]
             },
             {
+                "id": "essentialsx",
+                "name": "EssentialsX",
+                "description": "Conjunto de comandos y utilidades esenciales para servidores Minecraft (teleports, kits, homes, economía, etc.)",
+                "source": "github",
+                "source_id": "EssentialsX/Essentials",
+                "jar_name": "EssentialsX.jar",
+                "version": None,
+                "installed": False,
+                "has_web_integration": True,
+                "web_route": "/plugins/essentials",
+                "features": [
+                    "Homes, warps y teleports",
+                    "Kits y economía básica",
+                    "Mensajes y formato de chat",
+                    "Amplia compatibilidad"
+                ],
+                "limitations": [
+                    "Algunas configuraciones avanzadas requieren edición directa de YAML"
+                ]
+            },
+            {
                 "id": "quests",
                 "name": "Quests",
                 "description": "Sistema de misiones con dialogos y recompensas",
@@ -243,11 +264,12 @@ class RecommendedPluginsService:
             },
             {
                 "id": "jobs",
-                "name": "Jobs Reborn",
+                "name": "Jobs",
                 "description": "Sistema de trabajos con pagos y progresion",
-                "source": "modrinth",
-                "source_id": "jobs-reborn",
+                "source": "github",
+                "source_id": "Zrips/Jobs",
                 "jar_name": "Jobs.jar",
+                "info_url": "https://github.com/Zrips/Jobs",
                 "data_folder": "Jobs",
                 "version": None,
                 "installed": False,
@@ -267,8 +289,9 @@ class RecommendedPluginsService:
                 "name": "Shopkeepers",
                 "description": "NPCs de tienda personalizables",
                 "source": "modrinth",
-                "source_id": "shopkeepers",
+                "source_id": "shopkeepers-addon",
                 "jar_name": "Shopkeepers.jar",
+                "info_url": "https://modrinth.com/plugin/shopkeepers-addon/version/2.25.0-260212",
                 "version": None,
                 "installed": False,
                 "has_web_integration": True,
@@ -306,9 +329,10 @@ class RecommendedPluginsService:
                 "id": "citizens",
                 "name": "Citizens",
                 "description": "NPCs avanzados para servidores RPG",
-                "source": "modrinth",
-                "source_id": "citizens",
+                "source": "github",
+                "source_id": "CitizensDev/Citizens",
                 "jar_name": "Citizens.jar",
+                "info_url": "https://github.com/CitizensDev/Citizens",
                 "version": None,
                 "installed": False,
                 "has_web_integration": True,
@@ -375,6 +399,8 @@ class RecommendedPluginsService:
                 return await self._download_from_hangar(plugin_info, use_external=False)
             elif plugin_info["source"] == "hangar_external":
                 return await self._download_from_hangar(plugin_info, use_external=True)
+            elif plugin_info["source"] == "github":
+                return await self._download_from_github(plugin_info)
             else:
                 return {"success": False, "error": f"Fuente desconocida: {plugin_info['source']}"}
         
@@ -481,6 +507,55 @@ class RecommendedPluginsService:
                 "success": True,
                 "message": f"{plugin_info['name']} v{version_number} instalado correctamente",
                 "version": version_number,
+                "filename": plugin_info["jar_name"]
+            }
+
+    async def _download_from_github(self, plugin_info: Dict) -> Dict:
+        """Descargar plugin desde el último release de GitHub"""
+        api_url = f"https://api.github.com/repos/{plugin_info['source_id']}/releases/latest"
+
+        headers = {"Accept": "application/vnd.github+json"}
+        async with httpx.AsyncClient(timeout=30.0, headers=headers, follow_redirects=True) as client:
+            response = await client.get(api_url)
+            if response.status_code == 404:
+                return {"success": False, "error": "No se encontró release en GitHub (404)", "info_url": f"https://github.com/{plugin_info['source_id']}"}
+            if response.status_code != 200:
+                return {"success": False, "error": f"Error al consultar GitHub API: {response.status_code}"}
+
+            data = response.json()
+
+            # Buscar asset .jar
+            assets = data.get('assets', [])
+            jar_asset = None
+            for asset in assets:
+                name = asset.get('name', '')
+                if name.endswith('.jar'):
+                    jar_asset = asset
+                    break
+
+            if not jar_asset:
+                return {"success": False, "error": "No se encontró asset .jar en el release de GitHub"}
+
+            download_url = jar_asset.get('browser_download_url')
+            if not download_url:
+                return {"success": False, "error": "Asset de release no contiene URL de descarga"}
+
+            # Descargar
+            download_response = await client.get(download_url)
+            if download_response.status_code != 200:
+                return {"success": False, "error": f"Error al descargar desde GitHub: {download_response.status_code}"}
+
+            # Guardar
+            self.plugins_path.mkdir(parents=True, exist_ok=True)
+            jar_path = self.plugins_path / plugin_info["jar_name"]
+            with open(jar_path, 'wb') as f:
+                f.write(download_response.content)
+
+            version_tag = data.get('tag_name') or data.get('name')
+            return {
+                "success": True,
+                "message": f"{plugin_info['name']} {version_tag or ''} instalado correctamente",
+                "version": version_tag,
                 "filename": plugin_info["jar_name"]
             }
     

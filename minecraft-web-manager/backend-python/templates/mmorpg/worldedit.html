@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block title %}WorldEdit - Configuración{% endblock %}
+{% block page_title %}WorldEdit{% endblock %}
+{% block page_description %}Configuración visual de WorldEdit{% endblock %}
+
+{% block page_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+<script src="/static/js/components/worldedit.js"></script>
+{% endblock %}
+
+{% block content %}
+<div x-data="worldeditManager()" x-init="init()">
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <div class="flex items-center gap-3">
+            <div class="bg-indigo-100 p-3 rounded-lg">
+                <i data-lucide="map" class="w-6 h-6 text-indigo-600"></i>
+            </div>
+            <div>
+                <h2 class="text-2xl font-bold text-gray-900">WorldEdit</h2>
+                <p class="text-sm text-gray-600">Configuración visual y edición de archivos</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow">
+        <div class="border-b border-gray-200">
+            <nav class="-mb-px flex space-x-8 px-6" aria-label="Tabs">
+                <button @click="activeTab='general'" :class="activeTab==='general' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">General</button>
+                <button @click="activeTab='performance'" :class="activeTab==='performance' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Rendimiento</button>
+                <button @click="activeTab='permissions'" :class="activeTab==='permissions' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Permisos</button>
+                <button @click="activeTab='files'" :class="activeTab==='files' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Archivos</button>
+            </nav>
+        </div>
+
+        <div class="p-6">
+            <div x-show="activeTab==='general'" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="p-4 border border-gray-200 rounded-lg">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Máx. bloques selección</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Máx. bloques selección <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('max-selection-blocks')">?</span></label>
+                        <input type="number" x-model.number="config.maxSelectionBlocks" class="w-full border border-gray-300 rounded px-3 py-2" />
+                        <p class="text-xs text-gray-500 mt-1">Límite para operaciones de edición grandes</p>
+                    </div>
+
+                    <div class="p-4 border border-gray-200 rounded-lg">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Máx. undo <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('max-undo')">?</span></label>
+                        <input type="number" x-model.number="config.maxUndo" class="w-full border border-gray-300 rounded px-3 py-2" />
+                    </div>
+
+                    <div class="p-4 border border-gray-200 rounded-lg">
+                        <label class="flex items-center gap-3">
+                            <input type="checkbox" x-model="config.saveHistory" class="rounded" />
+                            <span class="text-sm text-gray-700">Guardar historial</span>
+                            <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('history')">?</span>
+                        </label>
+                    </div>
+
+                    <div class="p-4 border border-gray-200 rounded-lg">
+                        <label class="flex items-center gap-3">
+                            <input type="checkbox" x-model="config.autoSave" class="rounded" />
+                            <span class="text-sm text-gray-700">Auto guardar</span>
+                            <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('auto-save')">?</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="p-4 border border-gray-200 rounded-lg">
+                        <h4 class="font-semibold mb-2">Límites</h4>
+                        <label class="block text-sm text-gray-600 mb-1">Máx. bloques cambiados (default) <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('limits.max-blocks-changed')">?</span></label>
+                        <input type="number" x-model.number="config.maxBlocksChanged" class="w-full border border-gray-300 rounded px-3 py-2 mb-2" />
+
+                        <label class="block text-sm text-gray-600 mb-1">Máx. radio <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('limits.max-radius')">?</span></label>
+                        <input type="number" x-model.number="config.maxRadius" class="w-full border border-gray-300 rounded px-3 py-2 mb-2" />
+
+                        <label class="block text-sm text-gray-600 mb-1">Máx. radio pincel <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('limits.max-brush-radius')">?</span></label>
+                        <input type="number" x-model.number="config.maxBrushRadius" class="w-full border border-gray-300 rounded px-3 py-2" />
+                    </div>
+
+                    <div class="p-4 border border-gray-200 rounded-lg">
+                        <h4 class="font-semibold mb-2">Registro & Herramientas</h4>
+                        <label class="flex items-center gap-3 mb-2"><input type="checkbox" x-model="config.logCommands" class="rounded" /><span class="text-sm text-gray-700">Loggear comandos</span><span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('logging.log-commands')">?</span></label>
+                        <label class="block text-sm text-gray-600 mb-1">Archivo de log <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('logging.file')">?</span></label>
+                        <input type="text" x-model="config.logFile" class="w-full border border-gray-300 rounded px-3 py-2 mb-2" />
+
+                        <label class="block text-sm text-gray-600 mb-1">Item de la varita <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('wand-item')">?</span></label>
+                        <input type="text" x-model="config.wandItem" class="w-full border border-gray-300 rounded px-3 py-2 mb-2" />
+
+                        <label class="block text-sm text-gray-600 mb-1">Navigation wand (item) <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('navigation-wand.item')">?</span></label>
+                        <input type="text" x-model="config.navigationWandItem" class="w-full border border-gray-300 rounded px-3 py-2 mb-2" />
+                        <label class="block text-sm text-gray-600 mb-1">Navigation wand (max distancia) <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('navigation-wand.max-distance')">?</span></label>
+                        <input type="number" x-model.number="config.navigationWandMaxDistance" class="w-full border border-gray-300 rounded px-3 py-2" />
+                    </div>
+                </div>
+
+                <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="p-4 border border-gray-200 rounded-lg">
+                        <h4 class="font-semibold mb-2">Historial & Cálculo <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('history')">?</span></h4>
+                        <label class="block text-sm text-gray-600 mb-1">Tamaño historial <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('history.size')">?</span></label>
+                        <input type="number" x-model.number="config.historySize" class="w-full border border-gray-300 rounded px-3 py-2 mb-2" />
+
+                        <label class="block text-sm text-gray-600 mb-1">Expiración historial (min) <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('history.expiration')">?</span></label>
+                        <input type="number" x-model.number="config.historyExpiration" class="w-full border border-gray-300 rounded px-3 py-2" />
+                    </div>
+
+                    <div class="p-4 border border-gray-200 rounded-lg">
+                        <h4 class="font-semibold mb-2">Otras opciones</h4>
+                        <label class="flex items-center gap-3 mb-2"><input type="checkbox" x-model="config.debug" class="rounded" /><span class="text-sm text-gray-700">Debug</span><span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('debug')">?</span></label>
+                        <label class="flex items-center gap-3 mb-2"><input type="checkbox" x-model="config.serverSideCui" class="rounded" /><span class="text-sm text-gray-700">Server-side CUI</span><span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('server-side-cui')">?</span></label>
+                        <label class="flex items-center gap-3 mb-2"><input type="checkbox" x-model="config.commandBlockSupport" class="rounded" /><span class="text-sm text-gray-700">Soporte CommandBlock</span><span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('command-block-support')">?</span></label>
+                        <label class="flex items-center gap-3 mb-2"><input type="checkbox" x-model="config.allowSymbolicLinks" class="rounded" /><span class="text-sm text-gray-700">Permitir symlinks en archivos</span><span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('files.allow-symbolic-links')">?</span></label>
+                    </div>
+                </div>
+
+                <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="p-4 border border-gray-200 rounded-lg">
+                        <label class="block text-sm text-gray-600 mb-1">Timeout cálculo (ms) <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('calculation.timeout')">?</span></label>
+                        <input type="number" x-model.number="config.calculationTimeout" class="w-full border border-gray-300 rounded px-3 py-2" />
+                    </div>
+
+                    <div class="p-4 border border-gray-200 rounded-lg">
+                        <label class="block text-sm text-gray-600 mb-1">Directorio snapshots <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('snapshots.directory')">?</span></label>
+                        <input type="text" x-model="config.snapshotsDir" class="w-full border border-gray-300 rounded px-3 py-2 mb-2" />
+                        <label class="block text-sm text-gray-600 mb-1">Directorio saving <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('saving.dir')">?</span></label>
+                        <input type="text" x-model="config.savingDir" class="w-full border border-gray-300 rounded px-3 py-2" />
+                    </div>
+                </div>
+
+                <div class="flex gap-2">
+                    <button @click="saveConfig()" class="px-4 py-2 bg-blue-600 text-white rounded-lg">Guardar</button>
+                    <button @click="loadConfig()" class="px-4 py-2 bg-gray-100 rounded-lg">Restaurar</button>
+                </div>
+            </div>
+
+            <div x-show="activeTab==='performance'" class="text-sm text-gray-600">
+                <p>Opciones de rendimiento para WorldEdit. Actualmente no hay opciones visuales adicionales.</p>
+            </div>
+
+            <div x-show="activeTab==='permissions'" class="text-sm text-gray-600">
+                <p>Permisos y controles. Use la configuración del servidor para gestionar permisos.</p>
+            </div>
+
+            <div x-show="activeTab==='files'">
+                <!-- Reusar el panel de archivos del mmorpg_plugin -->
+                <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                    <div class="lg:col-span-1">
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="font-bold text-gray-900">Archivos</h3>
+                                <span class="text-xs text-gray-500" x-text="files.length + ' archivos'"></span>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="text-xs text-gray-500">Selector rápido</label>
+                                <select class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" @change="openFile($event.target.value)">
+                                    <template x-for="file in files" :key="file.path">
+                                        <option :value="file.path" x-text="file.path" :selected="file.path === activeFile"></option>
+                                    </template>
+                                </select>
+                            </div>
+
+                            <div class="space-y-2 max-h-[420px] overflow-y-auto">
+                                <template x-for="file in files" :key="file.path">
+                                    <button @click="openFile(file.path)" class="w-full text-left px-3 py-2 rounded-lg border transition" :class="file.path === activeFile ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:bg-gray-50'">
+                                        <div class="text-sm font-medium text-gray-800" x-text="file.path"></div>
+                                        <div class="text-xs text-gray-500"><span x-text="(file.size / 1024).toFixed(1) + ' KB'"></span></div>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-3">
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <div class="flex items-center justify-between mb-4">
+                                <div>
+                                    <h3 class="font-bold text-gray-900" x-text="activeFile || 'Selecciona un archivo'"></h3>
+                                    <p class="text-xs text-gray-500">Editor RAW / Visual</p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <select class="border border-gray-200 rounded-lg px-3 py-2 text-sm" x-model="viewMode">
+                                        <option value="raw">RAW</option>
+                                        <option value="visual">Visual</option>
+                                    </select>
+                                    <button @click="saveFile()" :disabled="saving || !activeFile" class="px-4 py-2 rounded-lg text-white bg-green-600 hover:bg-green-700 disabled:opacity-50">
+                                        <span x-text="saving ? 'Guardando...' : 'Guardar'"></span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div x-show="viewMode === 'raw'">
+                                <textarea class="w-full h-[520px] border border-gray-200 rounded-lg p-3 font-mono text-sm" x-model="fileContent"></textarea>
+                            </div>
+
+                            <div x-show="viewMode === 'visual'" class="space-y-4">
+                                <div x-show="formFields.length === 0" class="text-sm text-gray-500">No se pudo generar formulario visual para este archivo.</div>
+                                <template x-for="field in formFields" :key="field.key">
+                                    <div class="border border-gray-200 rounded-lg p-3">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2" x-text="field.key"></label>
+                                        <template x-if="field.type === 'boolean'">
+                                            <label class="inline-flex items-center gap-2"><input type="checkbox" class="rounded border-gray-300" :checked="field.value" @change="updateField(field, $event.target.checked)"><span class="text-sm text-gray-600">Activado</span></label>
+                                        </template>
+                                        <template x-if="field.type === 'number'">
+                                            <input type="number" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" :value="field.value" @input="updateField(field, $event.target.value)">
+                                        </template>
+                                        <template x-if="field.type === 'string'">
+                                            <input type="text" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" :value="field.value" @input="updateField(field, $event.target.value)">
+                                        </template>
+                                        <template x-if="field.type === 'json'">
+                                            <textarea class="w-full border border-gray-200 rounded-lg p-2 text-sm font-mono" rows="4" :value="field.value" @input="updateField(field, $event.target.value)"></textarea>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
