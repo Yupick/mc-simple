@@ -1,8 +1,10 @@
 """Controlador para gestión de Resource Packs"""
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, Body
 from pydantic import BaseModel
 from typing import List, Optional
+from pathlib import Path
 from app.services.resourcepack_service import resourcepack_service
+from urllib.parse import urlparse
 
 
 router = APIRouter()
@@ -20,6 +22,122 @@ class PriorityUpdate(BaseModel):
 
 class PluginToggle(BaseModel):
     enabled: bool
+
+
+class HostUpdate(BaseModel):
+    enabled: bool
+    resourceUrl: Optional[str] = None
+    resourceId: Optional[str] = None
+    prompt: Optional[str] = None
+
+
+@router.get("/host/info")
+async def host_info():
+    """Obtener estado del hosting del resourcepack (archivo público, sha1, plugin detectado)"""
+    try:
+        plugin_installed = resourcepack_service.is_plugin_installed()
+
+        # Comprobar si existe en carpeta pública
+        public_dir = resourcepack_service.public_resourcepacks
+        pack_path = public_dir / "ResourcePackManager_RSP.zip"
+
+        if pack_path.exists():
+            sha1 = resourcepack_service.compute_sha1(pack_path)
+            info = {
+                "hosted": True,
+                "relative_path": f"/static/resourcepacks/{pack_path.name}",
+                "sha1": sha1,
+                "size": pack_path.stat().st_size,
+                "modified": int(pack_path.stat().st_mtime),
+                "pluginDetected": plugin_installed
+            }
+        else:
+            info = {"hosted": False, "pluginDetected": plugin_installed}
+
+        return info
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/host/upload")
+async def host_upload(file: UploadFile = File(...)):
+    """Subir manualmente un resourcepack y alojarlo en la carpeta pública"""
+    try:
+        # Validar extensión
+        if not file.filename.endswith('.zip'):
+            raise HTTPException(status_code=400, detail="Solo se permiten archivos .zip")
+
+        content = await file.read()
+        if len(content) > 100 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="Archivo demasiado grande (máx 100MB)")
+
+        result = resourcepack_service.upload_and_host_pack(content, filename="ResourcePackManager_RSP.zip")
+        if not result:
+            raise HTTPException(status_code=500, detail="Error al alojar el archivo")
+
+        return {"success": True, "host": result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/host")
+async def set_hosting(data: HostUpdate):
+    """Activar/desactivar hosting y opcionalmente actualizar server.properties si se proporciona resourceUrl"""
+    try:
+        if data.enabled:
+            # Si el plugin está instalado, intentar copiar el pack generado al host público
+            if resourcepack_service.is_plugin_installed():
+                hosted = resourcepack_service.host_output_pack()
+            else:
+                hosted = None
+
+            # Determinar sha1 a usar en server.properties
+            sha1_to_use = None
+            # Preferir SHA1 del archivo recién hosteado
+            if hosted and hosted.get('sha1'):
+                sha1_to_use = hosted.get('sha1')
+
+            # Si se proporcionó resourceUrl y aún no tenemos sha1, intentar resolver archivo local en static
+            if data.resourceUrl and not sha1_to_use:
+                try:
+                    parsed = urlparse(data.resourceUrl)
+                    # Si la URL apunta a /static/resourcepacks/, intentar leer archivo local
+                    if parsed.path.startswith('/static/resourcepacks/'):
+                        filename = Path(parsed.path).name
+                        local_path = resourcepack_service.public_resourcepacks / filename
+                        if local_path.exists():
+                            sha1_to_use = resourcepack_service.compute_sha1(local_path)
+                except Exception:
+                    sha1_to_use = None
+
+            # Si se proporcionó resourceUrl, actualizar server.properties con sha1 calculado (si está disponible)
+            updated = False
+            if data.resourceUrl:
+                updated = resourcepack_service.update_server_properties(data.resourceUrl, sha1_to_use, data.prompt or "", data.resourceId)
+
+            return {"success": True, "hosted": hosted is not None, "serverUpdated": updated, "sha1": sha1_to_use}
+        else:
+            # Desactivar: borrar entradas? Por ahora no borramos server.properties automáticamente
+            return {"success": True, "message": "Hosting desactivado (no se modifica server.properties)"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/host/rollback")
+async def host_rollback():
+    """Restaurar el último backup de server.properties"""
+    try:
+        success = resourcepack_service.rollback_server_properties()
+        if success:
+            return {"success": True, "message": "server.properties restaurado desde backup"}
+        else:
+            raise HTTPException(status_code=404, detail="No se encontró backup para restaurar")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/status")

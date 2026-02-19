@@ -290,11 +290,25 @@ function configManager() {
         whitelist: [],
         loading: false,
         activeTab: 'Básico',
-        categories: ['Básico', 'Gameplay', 'Mundo', 'Protección', 'Rendimiento', 'Dimensiones', 'RCON', 'Query', 'Avanzado'],
+        categories: ['Básico', 'Gameplay', 'Mundo', 'Protección', 'Rendimiento', 'Dimensiones', 'RCON', 'Query', 'Avanzado', 'Resource Pack'],
+        // Resource pack state
+        rp: {
+            enabled: false,
+            hosted: false,
+            url: '',
+            sha1: '',
+            size: 0,
+            modified: 0,
+            pluginDetected: false,
+            prompt: ''
+        },
+        rpFile: null,
         
         async init() {
             await this.fetchProperties();
             await this.fetchWhitelist();
+            // Cargar info de resource pack al iniciar
+            await this.refreshRpInfo();
         },
         
         async fetchProperties() {
@@ -314,6 +328,116 @@ function configManager() {
                 this.whitelist = data.whitelist || data;
             } catch (e) {
                 console.error('Error fetching whitelist:', e);
+            }
+        },
+
+        // Resource Pack methods
+        async refreshRpInfo() {
+            try {
+                const res = await fetch('/api/resourcepacks/host/info');
+                if (!res.ok) throw new Error('No info');
+                const data = await res.json();
+                this.rp.hosted = data.hosted || false;
+                this.rp.pluginDetected = data.pluginDetected || false;
+                if (data.hosted) {
+                    this.rp.url = data.relative_path;
+                    this.rp.sha1 = data.sha1 || '';
+                    this.rp.size = data.size || 0;
+                    this.rp.modified = data.modified || 0;
+                }
+            } catch (e) {
+                console.error('Error fetching RP info', e);
+            }
+        },
+
+        async toggleHosting() {
+            try {
+                // Si activando y plugin detectado, pedir que el backend hospede el output
+                const payload = { enabled: this.rp.enabled };
+                const res = await fetch('/api/resourcepacks/host', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    await this.refreshRpInfo();
+                    alert('Estado de hosting actualizado');
+                } else {
+                    alert(data.detail || 'Error al cambiar hosting');
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Error al cambiar hosting');
+            }
+        },
+
+        handleRpFile(ev) {
+            const file = ev.target.files[0];
+            if (!file) return;
+            if (!file.name.endsWith('.zip')) { alert('Solo .zip'); return; }
+            if (file.size > 100 * 1024 * 1024) { alert('Archivo demasiado grande'); return; }
+            this.rpFile = file;
+        },
+
+        async uploadRp() {
+            if (!this.rpFile) { alert('Selecciona un archivo'); return; }
+            try {
+                const form = new FormData();
+                form.append('file', this.rpFile);
+                const res = await fetch('/api/resourcepacks/host/upload', {
+                    method: 'POST',
+                    body: form
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    alert('Archivo subido y alojado');
+                    await this.refreshRpInfo();
+                } else {
+                    alert(data.detail || 'Error al subir');
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Error al subir archivo');
+            }
+        },
+
+        async applyRpToServer() {
+            try {
+                if (!this.rp.hosted) { alert('No hay pack alojado'); return; }
+                // Construir URL completa basándose en origen actual
+                const base = window.location.origin;
+                const fullUrl = base + this.rp.url;
+                const payload = { enabled: true, resourceUrl: fullUrl, prompt: this.rp.prompt || '', resourceId: '' };
+                const res = await fetch('/api/resourcepacks/host', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    alert('server.properties actualizado');
+                } else {
+                    alert(data.detail || 'Error al actualizar server.properties');
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Error al aplicar en server.properties');
+            }
+        },
+
+        async rollbackServerProperties() {
+            try {
+                const res = await fetch('/api/resourcepacks/host/rollback', { method: 'POST' });
+                const data = await res.json();
+                if (res.ok) {
+                    alert('server.properties restaurado');
+                } else {
+                    alert(data.detail || 'No se pudo restaurar');
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Error al restaurar backup');
             }
         },
         
