@@ -14,7 +14,8 @@ function pluginsManager() {
             'Jobs': '/mmorpg/jobs',
             'Shopkeepers': '/mmorpg/shopkeepers',
             'MythicMobs': '/mmorpg/mythicmobs',
-            'Citizens': '/mmorpg/citizens'
+            'Citizens': '/mmorpg/citizens',
+            'EssentialsX': '/plugins/essentials'
         },
         uploadModal: {
             open: false,

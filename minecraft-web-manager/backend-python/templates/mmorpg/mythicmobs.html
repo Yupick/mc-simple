@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+
+{% block title %}MythicMobs - Configuración{% endblock %}
+{% block page_title %}MythicMobs{% endblock %}
+{% block page_description %}Configuración visual de MythicMobs{% endblock %}
+
+{% block page_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+<script src="/static/js/components/mythicmobs.js"></script>
+{% endblock %}
+
+{% block content %}
+<div x-data="mythicMobsManager()" x-init="init()">
+  <div class="bg-white rounded-lg shadow p-6 mb-6">
+    <div class="flex items-center gap-3">
+      <div class="bg-indigo-100 p-3 rounded-lg">
+        <i data-lucide="box" class="w-6 h-6 text-indigo-600"></i>
+      </div>
+      <div>
+        <h2 class="text-2xl font-bold text-gray-900">MythicMobs</h2>
+        <p class="text-sm text-gray-600">Editor visual de configuración</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-lg shadow">
+    <div class="border-b border-gray-200">
+      <nav class="-mb-px flex space-x-8 px-6" aria-label="Tabs">
+        <button @click="activeTab='general'" :class="activeTab==='general' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">General</button>
+        <button @click="activeTab='mobs'" :class="activeTab==='mobs' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Mobs</button>
+        <button @click="activeTab='spawning'" :class="activeTab==='spawning' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Spawning</button>
+        <button @click="activeTab='skills'" :class="activeTab==='skills' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Skills</button>
+        <button @click="activeTab='stats'" :class="activeTab==='stats' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Stats</button>
+        <button @click="activeTab='items'" :class="activeTab==='items' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Items/DropTables</button>
+        <button @click="activeTab='files'" :class="activeTab==='files' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Archivos</button>
+      </nav>
+    </div>
+
+    <div class="p-6">
+      <!-- General -->
+      <div x-show="activeTab==='general'" class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="p-4 border border-gray-200 rounded-lg">
+            <label class="block text-sm text-gray-600 mb-1">Language <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('general.Language')">?</span></label>
+            <select x-model="config.general.Language" class="w-full border border-gray-200 rounded px-3 py-2">
+              <option value="en-us">en-us</option>
+              <option value="es-es">es-es</option>
+            </select>
+            <label class="block text-sm text-gray-600 mt-3">ThreadPoolSize <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('general.ThreadPoolSize')">?</span></label>
+            <input type="number" x-model.number="config.general.ThreadPoolSize" class="w-full border border-gray-300 rounded px-3 py-2" />
+            <label class="flex items-center gap-3 mt-3"><input type="checkbox" x-model="config.general.UseVirtualThreads" class="rounded" /><span class="text-sm text-gray-700">Use Virtual Threads</span><span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('general.UseVirtualThreads')">?</span></label>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button @click="saveConfig('general')" class="px-4 py-2 bg-blue-600 text-white rounded-lg">Guardar</button>
+          <button @click="loadConfig('general')" class="px-4 py-2 bg-gray-100 rounded-lg">Restaurar</button>
+        </div>
+      </div>
+
+      <!-- Mobs -->
+      <div x-show="activeTab==='mobs'" class="space-y-4">
+        <div class="p-4 border border-gray-200 rounded-lg">
+          <h4 class="font-bold mb-3">MobDrops</h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm text-gray-600">DefaultDropMethod <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('mobs.MobDrops.DefaultDropMethod')">?</span></label>
+              <input type="text" x-model="config.mobs.MobDrops.DefaultDropMethod" class="w-full border border-gray-200 rounded px-3 py-2" />
+              <label class="flex items-center gap-3 mt-2"><input type="checkbox" x-model="config.mobs.MobDrops.DoLootsplosionByDefault" class="rounded" /> <span class="text-sm">DoLootsplosionByDefault</span><span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('mobs.MobDrops.DoLootsplosionByDefault')">?</span></label>
+              <label class="flex items-center gap-3 mt-2"><input type="checkbox" x-model="config.mobs.MobDrops.DoHologramNameByDefault" class="rounded" /> <span class="text-sm">DoHologramNameByDefault</span><span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('mobs.MobDrops.DoHologramNameByDefault')">?</span></label>
+            </div>
+            <div>
+              <label class="block text-sm text-gray-600">DefaultItemVFX.Material <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('mobs.MobDrops.DefaultItemVFX.Material')">?</span></label>
+              <select x-model="config.mobs.MobDrops.DefaultItemVFX.Material" class="w-full border border-gray-200 rounded px-3 py-2">
+                <option value="POTION">POTION</option>
+                <option value="DIAMOND">DIAMOND</option>
+                <option value="GOLD_INGOT">GOLD_INGOT</option>
+              </select>
+              <label class="block text-sm text-gray-600 mt-2">DefaultItemVFX.Model <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('mobs.MobDrops.DefaultItemVFX.Model')">?</span></label>
+              <input type="number" x-model.number="config.mobs.MobDrops.DefaultItemVFX.Model" class="w-full border border-gray-200 rounded px-3 py-2" />
+            </div>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button @click="saveConfig('mobs')" class="px-4 py-2 bg-blue-600 text-white rounded-lg">Guardar</button>
+          <button @click="loadConfig('mobs')" class="px-4 py-2 bg-gray-100 rounded-lg">Restaurar</button>
+        </div>
+      </div>
+
+      <!-- Spawning -->
+      <div x-show="activeTab==='spawning'" class="space-y-4">
+        <div class="p-4 border border-gray-200 rounded-lg">
+          <h4 class="font-bold mb-3">RandomSpawning</h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+                <label class="flex items-center gap-3"><input type="checkbox" x-model="config.spawning.RandomSpawning.DisableVanillaSpawns" class="rounded" /> <span class="text-sm">DisableVanillaSpawns</span><span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('spawning.RandomSpawning.DisableVanillaSpawns')">?</span></label>
+                <label class="flex items-center gap-3 mt-2"><input type="checkbox" x-model="config.spawning.RandomSpawning.GenerateSpawnPoints" class="rounded" /> <span class="text-sm">GenerateSpawnPoints</span><span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('spawning.RandomSpawning.GenerateSpawnPoints')">?</span></label>
+              </div>
+            <div>
+              <label class="block text-sm text-gray-600">SpawnRadiusPerPlayer <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('spawning.RandomSpawning.SpawnRadiusPerPlayer')">?</span></label>
+              <input type="number" x-model.number="config.spawning.RandomSpawning.SpawnRadiusPerPlayer" class="w-full border border-gray-200 rounded px-3 py-2" />
+              <label class="block text-sm text-gray-600 mt-2">PlayerClusterDistance <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('spawning.RandomSpawning.PlayerClusterDistance')">?</span></label>
+              <input type="number" x-model.number="config.spawning.RandomSpawning.PlayerClusterDistance" class="w-full border border-gray-200 rounded px-3 py-2" />
+            </div>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button @click="saveConfig('spawning')" class="px-4 py-2 bg-blue-600 text-white rounded-lg">Guardar</button>
+          <button @click="loadConfig('spawning')" class="px-4 py-2 bg-gray-100 rounded-lg">Restaurar</button>
+        </div>
+      </div>
+
+      <!-- Skills -->
+      <div x-show="activeTab==='skills'" class="space-y-4">
+        <div class="p-4 border border-gray-200 rounded-lg">
+          <h4 class="font-bold mb-3">Targeters.DefaultEntityFilters</h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <template x-for="(v,k) in config.skills.Targeters.DefaultEntityFilters" :key="k">
+              <label class="flex items-center gap-3"><input type="checkbox" :checked="v" @change="(config.skills.Targeters.DefaultEntityFilters[k] = $event.target.checked)" class="rounded" /><span class="text-sm" x-text="k"></span><span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('skills.'+k)">?</span></label>
+            </template>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button @click="saveConfig('skills')" class="px-4 py-2 bg-blue-600 text-white rounded-lg">Guardar</button>
+          <button @click="loadConfig('skills')" class="px-4 py-2 bg-gray-100 rounded-lg">Restaurar</button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div x-show="activeTab==='stats'" class="space-y-4">
+        <div class="p-4 border border-gray-200 rounded-lg max-h-[420px] overflow-y-auto">
+          <h4 class="font-bold mb-3">Stats</h4>
+            <template x-for="(s,key) in config.stats" :key="key">
+            <div class="p-3 border rounded mb-2">
+              <div class="flex items-center justify-between">
+                <div class="font-medium" x-text="key"></div>
+                <div class="flex items-center gap-2">
+                  <label class="text-sm">Enabled <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('stats.Enabled')">?</span></label>
+                  <input type="checkbox" :checked="s.Enabled" @change="(config.stats[key].Enabled = $event.target.checked)" class="rounded" />
+                </div>
+              </div>
+              <div class="mt-2">
+                <label class="block text-sm text-gray-600">BaseValue <span class="text-xs text-gray-400 ml-2 cursor-help" x-bind:title="getHelp('stats.BaseValue')">?</span></label>
+                <input type="text" x-model="config.stats[key].BaseValue" class="w-full border border-gray-200 rounded px-2 py-1" />
+              </div>
+            </div>
+          </template>
+        </div>
+        <div class="flex gap-2">
+          <button @click="saveConfig('stats')" class="px-4 py-2 bg-blue-600 text-white rounded-lg">Guardar</button>
+          <button @click="loadConfig('stats')" class="px-4 py-2 bg-gray-100 rounded-lg">Restaurar</button>
+        </div>
+      </div>
+
+      <!-- Items/DropTables: use Quests categories layout -->
+      <div x-show="activeTab==='items'" class="space-y-4">
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div class="lg:col-span-1">
+            <div class="bg-white rounded-lg shadow p-4">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="font-bold text-gray-900">Items</h3>
+                <div class="flex items-center gap-2">
+                  <button @click="addItem()" class="px-2 py-1 bg-green-600 text-white text-xs rounded">Añadir</button>
+                  <button @click="saveItems()" class="px-2 py-1 bg-blue-600 text-white text-xs rounded">Guardar</button>
+                </div>
+              </div>
+
+              <div class="space-y-2 max-h-[420px] overflow-y-auto">
+                <template x-for="(entry, name) in itemsList" :key="name">
+                  <div class="flex items-center gap-2">
+                    <button @click="openItem(name)" class="w-full text-left px-3 py-2 rounded-lg border transition" :class="name === selectedItemId ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:bg-gray-50'">
+                      <div class="text-sm font-medium text-gray-800" x-text="name"></div>
+                      <div class="text-xs text-gray-500" x-text="(itemsList[name] && itemsList[name].obj && itemsList[name].obj.Display) ? (Array.isArray(itemsList[name].obj.Display) ? itemsList[name].obj.Display.join(' ') : itemsList[name].obj.Display) : ''"></div>
+                    </button>
+                    <button @click="removeItem(name)" class="px-2 py-1 bg-red-500 text-white rounded">X</button>
+                  </div>
+                </template>
+                <div x-show="Object.keys(itemsList).length === 0" class="text-sm text-gray-500">No hay items detectados en items/</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="lg:col-span-1">
+            <div class="bg-white rounded-lg shadow p-4">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="font-bold text-gray-900">DropTables</h3>
+                <div class="flex items-center gap-2">
+                  <button @click="addDropTable()" class="px-2 py-1 bg-green-600 text-white text-xs rounded">Añadir</button>
+                  <button @click="saveDropTables()" class="px-2 py-1 bg-blue-600 text-white text-xs rounded">Guardar</button>
+                </div>
+              </div>
+              <div class="space-y-2 max-h-[420px] overflow-y-auto">
+                <template x-for="(entry, name) in droptablesList" :key="name">
+                  <div class="flex items-center gap-2">
+                    <button @click="openDropTable(name)" class="w-full text-left px-3 py-2 rounded-lg border transition" :class="name === selectedDropId ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:bg-gray-50'">
+                      <div class="text-sm font-medium text-gray-800" x-text="name"></div>
+                      <div class="text-xs text-gray-500" x-text="(droptablesList[name] && droptablesList[name].obj && droptablesList[name].obj.Drops) ? droptablesList[name].obj.Drops.length + ' drops' : ''"></div>
+                    </button>
+                    <button @click="removeDropTable(name)" class="px-2 py-1 bg-red-500 text-white rounded">X</button>
+                  </div>
+                </template>
+                <div x-show="Object.keys(droptablesList).length === 0" class="text-sm text-gray-500">No hay droptables detectados en droptables/</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="lg:col-span-2">
+            <div class="bg-white rounded-lg shadow p-4">
+              <div x-show="!selectedItemId && !selectedDropId" class="text-sm text-gray-500">Selecciona un item o droptable para editar, o crea uno nuevo.</div>
+
+              <div x-show="selectedItemId">
+                <h4 class="font-bold mb-2">Editar Item: <span x-text="selectedItemId"></span></h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm text-gray-600">Display Name</label>
+                    <input type="text" x-model="selectedItem.display.name" class="w-full border border-gray-300 rounded px-3 py-2" />
+                    <label class="block text-sm text-gray-600 mt-2">Id</label>
+                    <input type="text" x-model="selectedItem.Id" class="w-full border border-gray-300 rounded px-3 py-2" />
+                    <label class="block text-sm text-gray-600 mt-2">Enchantments (one per line, NAME:LEVEL)</label>
+                    <textarea x-model="selectedItem.enchantsText" rows="4" class="w-full border border-gray-300 rounded px-3 py-2 font-mono text-sm"></textarea>
+                  </div>
+                  <div>
+                    <label class="block text-sm text-gray-600">Lore (una línea por entrada)</label>
+                    <textarea x-model="selectedItem.display.loreText" rows="8" class="w-full border border-gray-300 rounded px-3 py-2 font-mono text-sm"></textarea>
+                  </div>
+                </div>
+                <div class="mt-3">
+                  <button @click="applyItemEdit()" class="px-3 py-2 bg-green-600 text-white rounded">Aplicar cambios</button>
+                </div>
+              </div>
+
+              <div x-show="selectedDropId">
+                <h4 class="font-bold mb-2">Editar DropTable: <span x-text="selectedDropId"></span></h4>
+                <div class="space-y-2">
+                  <label class="block text-sm text-gray-600">Drops (una línea por entrada)</label>
+                  <textarea x-model="selectedDrop.dropsText" rows="10" class="w-full border border-gray-300 rounded px-3 py-2 font-mono text-sm"></textarea>
+                  <div class="mt-2">
+                    <button @click="applyDropEdit()" class="px-3 py-2 bg-green-600 text-white rounded">Aplicar cambios</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Archivos RAW -->
+      <div x-show="activeTab==='files'">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="lg:col-span-1">
+            <div class="bg-white rounded-lg shadow p-4">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="font-bold text-gray-900">Archivos</h3>
+                <span class="text-xs text-gray-500" x-text="files.length + ' archivos'"></span>
+              </div>
+              <div class="space-y-2 max-h-[420px] overflow-y-auto">
+                <template x-for="file in files" :key="file.path">
+                  <button @click="openFile(file.path)" class="w-full text-left px-3 py-2 rounded-lg border transition" :class="file.path === activeFile ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:bg-gray-50'">
+                    <div class="text-sm font-medium text-gray-800" x-text="file.path"></div>
+                  </button>
+              <div class="mt-3">
+                <label class="block text-sm text-gray-600">DefaultDeathChatMessage (una línea por mensaje)</label>
+                <textarea x-model="config.mobs.MobDrops.DefaultDeathChatMessageText" rows="3" class="w-full border border-gray-200 rounded px-3 py-2 font-mono text-sm"></textarea>
+                <script>
+                  // sync textarea to array when changed
+                </script>
+              </div>
+                </template>
+              </div>
+            </div>
+          </div>
+          <div class="lg:col-span-3">
+            <div class="bg-white rounded-lg shadow p-4">
+              <div class="flex items-center justify-between mb-4">
+                <div>
+                  <h3 class="font-bold text-gray-900" x-text="activeFile || 'Selecciona un archivo'"></h3>
+                  <p class="text-xs text-gray-500">Editor RAW</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button @click="saveFile()" :disabled="saving || !activeFile" class="px-4 py-2 rounded-lg text-white bg-green-600 hover:bg-green-700 disabled:opacity-50">Guardar</button>
+                </div>
+              </div>
+              <textarea class="w-full h-[520px] border border-gray-200 rounded-lg p-3 font-mono text-sm" x-model="fileContent"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- modal placeholder if needed -->
+  <div x-show="showMobModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center">
+    <div class="absolute inset-0 bg-black opacity-50 z-40"></div>
+    <div class="bg-white rounded-lg shadow-lg z-50 w-11/12 md:w-2/3 max-h-[80vh] overflow-auto p-4 pointer-events-auto">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-bold">Editar archivo: <span x-text="selectedMobPath"></span></h3>
+        <button @click="showMobModal=false" class="px-2 py-1 bg-gray-200 rounded">Cerrar</button>
+      </div>
+      <div class="mb-3 flex items-center gap-2">
+        <label class="text-sm text-gray-600">Modo:</label>
+        <select x-model="modalMode" class="border border-gray-200 rounded px-2 py-1 text-sm">
+          <option value="visual">Visual</option>
+          <option value="raw">RAW</option>
+        </select>
+      </div>
+      <div x-show="modalMode === 'visual'">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm text-gray-600">Nombre</label>
+            <input type="text" x-model="selectedMobObject.display && selectedMobObject.display.name ? selectedMobObject.display.name : (selectedMobObject.name || '')" @input="(selectedMobObject.display = selectedMobObject.display || {}, selectedMobObject.display.name = $event.target.value)" class="w-full border border-gray-300 rounded px-3 py-2" />
+            <label class="block text-sm text-gray-600 mt-2">Health</label>
+            <input type="number" x-model.number="selectedMobObject.health" class="w-full border border-gray-300 rounded px-3 py-2" />
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600">Drops (JSON libre)</label>
+            <textarea x-model="selectedMobObject.dropsRaw" @input="(selectedMobObject.drops = (function(){try{return JSON.parse($event.target.value);}catch(e){return selectedMobObject.drops||[]}})())" rows="8" class="w-full border border-gray-300 rounded px-3 py-2 font-mono"></textarea>
+          </div>
+        </div>
+      </div>
+      <div x-show="modalMode === 'raw'">
+        <label class="block text-sm text-gray-600 mb-1">Contenido YAML</label>
+        <textarea x-model="selectedMobContent" rows="18" class="w-full border border-gray-200 rounded p-2 font-mono text-sm"></textarea>
+      </div>
+      <div class="mt-3 flex gap-2 justify-end">
+        <button @click="showMobModal=false" class="px-3 py-2 bg-gray-100 rounded">Cancelar</button>
+        <button @click="saveMobFromModal()" class="px-3 py-2 bg-blue-600 text-white rounded">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
