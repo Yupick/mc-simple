@@ -69,9 +69,15 @@ update_code() {
         local stashed=false
     fi
 
-    # Pull
+    # Pull: determinar la rama actual e intentar hacer pull desde el mismo nombre en el remoto
     print_message "$BLUE" "Descargando cambios desde GitHub..."
-    git pull origin master
+    branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+    if [ -z "$branch" ] || [ "$branch" = "HEAD" ]; then
+        # fallback a main
+        branch="main"
+    fi
+    print_message "$BLUE" "Haciendo pull desde origin/$branch"
+    git pull origin "$branch"
 
     if [ $? -ne 0 ]; then
         print_message "$RED" "✗ Error al actualizar el código"
