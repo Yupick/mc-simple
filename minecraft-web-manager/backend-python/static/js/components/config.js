@@ -284,7 +284,8 @@ const SERVER_PROPERTIES_CONFIG = {
 };
 
 // Component para configuración
-function configManager() {
+function configManager(initData = {}) {
+    initData = initData || {};
     return {
         properties: {},
         whitelist: [],
@@ -293,7 +294,7 @@ function configManager() {
         categories: ['Básico', 'Gameplay', 'Mundo', 'Protección', 'Rendimiento', 'Dimensiones', 'RCON', 'Query', 'Avanzado', 'Resource Pack'],
         // Resource pack state
         rp: {
-            enabled: false,
+            enabled: (typeof initData.rpEnabled !== 'undefined') ? initData.rpEnabled : false,
             hosted: false,
             url: '',
             sha1: '',
@@ -309,6 +310,16 @@ function configManager() {
             await this.fetchWhitelist();
             // Cargar info de resource pack al iniciar
             await this.refreshRpInfo();
+            // Asegurar que al cambiar a la pestaña Resource Pack se refresque el estado
+            try {
+                if (typeof this.$watch === 'function') {
+                    this.$watch('activeTab', (value) => {
+                        if (value === 'Resource Pack') this.refreshRpInfo();
+                    });
+                }
+            } catch (e) {
+                // ignore if watch not available
+            }
         },
         
         async fetchProperties() {
@@ -339,11 +350,19 @@ function configManager() {
                 const data = await res.json();
                 this.rp.hosted = data.hosted || false;
                 this.rp.pluginDetected = data.pluginDetected || false;
+                // Estado persistido (toggle)
+                this.rp.enabled = data.enabled || false;
                 if (data.hosted) {
-                    this.rp.url = data.relative_path;
+                    // Puede venir como relative_path o url en settings
+                    this.rp.url = data.relative_path || data.url || '';
                     this.rp.sha1 = data.sha1 || '';
                     this.rp.size = data.size || 0;
                     this.rp.modified = data.modified || 0;
+                } else {
+                    // Si no está alojado pero hay URL en settings, mostrarla
+                    if (data.relative_path || data.url) {
+                        this.rp.url = data.relative_path || data.url;
+                    }
                 }
             } catch (e) {
                 console.error('Error fetching RP info', e);

@@ -24,7 +24,8 @@ class ResourcePackService:
         self.compatible_plugins_path = self.plugin_path / "compatible_plugins"
         self.collision_log = self.plugin_path / "collision_log.txt"
         # Carpeta pública dentro del panel para servir resourcepacks
-        self.public_resourcepacks = Path(__file__).resolve().parents[3] / "static" / "resourcepacks"
+        # Debe apuntar a backend-python/static/resourcepacks (dos niveles arriba: backend-python/static)
+        self.public_resourcepacks = Path(__file__).resolve().parents[2] / "static" / "resourcepacks"
         # Asegurarse de que exista
         try:
             self.public_resourcepacks.mkdir(parents=True, exist_ok=True)

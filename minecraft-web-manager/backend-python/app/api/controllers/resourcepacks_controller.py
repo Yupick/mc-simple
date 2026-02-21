@@ -1,10 +1,13 @@
 """Controlador para gestión de Resource Packs"""
-from fastapi import APIRouter, HTTPException, UploadFile, File, Body
+from fastapi import APIRouter, HTTPException, UploadFile, File, Body, Depends
 from pydantic import BaseModel
 from typing import List, Optional
 from pathlib import Path
 from app.services.resourcepack_service import resourcepack_service
 from urllib.parse import urlparse
+from sqlalchemy.orm import Session
+from app.db.session import get_db
+from app.models.app_settings import AppSettings
 
 
 router = APIRouter()
@@ -32,7 +35,7 @@ class HostUpdate(BaseModel):
 
 
 @router.get("/host/info")
-async def host_info():
+async def host_info(db: Session = Depends(get_db)):
     """Obtener estado del hosting del resourcepack (archivo público, sha1, plugin detectado)"""
     try:
         plugin_installed = resourcepack_service.is_plugin_installed()
@@ -54,13 +57,31 @@ async def host_info():
         else:
             info = {"hosted": False, "pluginDetected": plugin_installed}
 
+        # Obtener estado persistido (si existe). Si no hay setting, inferir desde existencia del pack
+        hosted_setting = db.query(AppSettings).filter(AppSettings.key == 'resourcepack.hosted').first()
+        if hosted_setting and hosted_setting.value is not None:
+            enabled = hosted_setting.value.lower() == 'true'
+        else:
+            enabled = info.get('hosted', False)
+
+        info['enabled'] = enabled
+
+        # Añadir resource URL/sha1 desde settings si no está presente
+        url_setting = db.query(AppSettings).filter(AppSettings.key == 'resourcepack.url').first()
+        sha1_setting = db.query(AppSettings).filter(AppSettings.key == 'resourcepack.sha1').first()
+        if url_setting and 'relative_path' not in info:
+            info['relative_path'] = url_setting.value
+            info['hosted'] = True
+        if sha1_setting and 'sha1' not in info:
+            info['sha1'] = sha1_setting.value
+
         return info
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/host/upload")
-async def host_upload(file: UploadFile = File(...)):
+async def host_upload(file: UploadFile = File(...), db: Session = Depends(get_db)):
     """Subir manualmente un resourcepack y alojarlo en la carpeta pública"""
     try:
         # Validar extensión
@@ -75,6 +96,33 @@ async def host_upload(file: UploadFile = File(...)):
         if not result:
             raise HTTPException(status_code=500, detail="Error al alojar el archivo")
 
+        # Guardar metadata en la DB
+        # hosted flag
+        hosted_setting = db.query(AppSettings).filter(AppSettings.key == 'resourcepack.hosted').first()
+        if not hosted_setting:
+            hosted_setting = AppSettings(key='resourcepack.hosted', value='true')
+            db.add(hosted_setting)
+        else:
+            hosted_setting.value = 'true'
+
+        # URL
+        url_setting = db.query(AppSettings).filter(AppSettings.key == 'resourcepack.url').first()
+        if not url_setting:
+            url_setting = AppSettings(key='resourcepack.url', value=result.get('relative_path'))
+            db.add(url_setting)
+        else:
+            url_setting.value = result.get('relative_path')
+
+        # sha1
+        sha1_setting = db.query(AppSettings).filter(AppSettings.key == 'resourcepack.sha1').first()
+        if not sha1_setting:
+            sha1_setting = AppSettings(key='resourcepack.sha1', value=result.get('sha1') or '')
+            db.add(sha1_setting)
+        else:
+            sha1_setting.value = result.get('sha1') or ''
+
+        db.commit()
+
         return {"success": True, "host": result}
     except HTTPException:
         raise
@@ -83,7 +131,7 @@ async def host_upload(file: UploadFile = File(...)):
 
 
 @router.put("/host")
-async def set_hosting(data: HostUpdate):
+async def set_hosting(data: HostUpdate, db: Session = Depends(get_db)):
     """Activar/desactivar hosting y opcionalmente actualizar server.properties si se proporciona resourceUrl"""
     try:
         if data.enabled:
@@ -116,10 +164,51 @@ async def set_hosting(data: HostUpdate):
             updated = False
             if data.resourceUrl:
                 updated = resourcepack_service.update_server_properties(data.resourceUrl, sha1_to_use, data.prompt or "", data.resourceId)
+            else:
+                # Si no se proporcionó resourceUrl pero el servicio hospedó el archivo, persistir la URL
+                if hosted and hosted.get('relative_path'):
+                    # actualizar server.properties no se hace a menos que se pida, pero guardamos la url
+                    data.resourceUrl = hosted.get('relative_path')
+                    # no forzamos update_server_properties aquí; solo persistimos la url
+
+            # Persistir estado en DB
+            hosted_setting = db.query(AppSettings).filter(AppSettings.key == 'resourcepack.hosted').first()
+            if not hosted_setting:
+                hosted_setting = AppSettings(key='resourcepack.hosted', value='true')
+                db.add(hosted_setting)
+            else:
+                hosted_setting.value = 'true'
+
+            if data.resourceUrl:
+                url_setting = db.query(AppSettings).filter(AppSettings.key == 'resourcepack.url').first()
+                if not url_setting:
+                    url_setting = AppSettings(key='resourcepack.url', value=data.resourceUrl)
+                    db.add(url_setting)
+                else:
+                    url_setting.value = data.resourceUrl
+
+            if sha1_to_use:
+                sha1_setting = db.query(AppSettings).filter(AppSettings.key == 'resourcepack.sha1').first()
+                if not sha1_setting:
+                    sha1_setting = AppSettings(key='resourcepack.sha1', value=sha1_to_use)
+                    db.add(sha1_setting)
+                else:
+                    sha1_setting.value = sha1_to_use
+
+            db.commit()
 
             return {"success": True, "hosted": hosted is not None, "serverUpdated": updated, "sha1": sha1_to_use}
         else:
             # Desactivar: borrar entradas? Por ahora no borramos server.properties automáticamente
+            hosted_setting = db.query(AppSettings).filter(AppSettings.key == 'resourcepack.hosted').first()
+            if not hosted_setting:
+                hosted_setting = AppSettings(key='resourcepack.hosted', value='false')
+                db.add(hosted_setting)
+            else:
+                hosted_setting.value = 'false'
+
+            db.commit()
+
             return {"success": True, "message": "Hosting desactivado (no se modifica server.properties)"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
