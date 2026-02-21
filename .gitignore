@@ -60,3 +60,9 @@ Thumbs.db
 
 # Directorio completo del servidor Minecraft
 server/
+
+# Ignorar resourcepacks generados/subidos por el panel (no versionar contenido)
+# Ruta específica al directorio del backend
+/minecraft-web-manager/backend-python/static/resourcepacks/
+# Ignorar en cualquier lugar donde exista una carpeta static/resourcepacks
+**/static/resourcepacks/*
