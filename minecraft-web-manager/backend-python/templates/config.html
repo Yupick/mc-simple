@@ -5,7 +5,7 @@
 {% block page_description %}Configurar el servidor{% endblock %}
 
 {% block content %}
-<div x-data="configManager()" x-init="init()">
+<div x-data="configManager({ rpEnabled: {{ rp_enabled | tojson }} })" x-init="init()">
     <!-- Tabs de categorías -->
     <div class="bg-white rounded-lg shadow mb-6 overflow-hidden">
         <div class="flex overflow-x-auto border-b">
@@ -157,10 +157,16 @@
             <div class="p-4 border rounded-lg">
                 <h4 class="font-semibold">Hosting</h4>
                 <p class="text-sm text-gray-600 mb-3">Activar para permitir que los clientes descarguen el resource pack desde este panel.</p>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" x-model="rp.enabled" @change="toggleHosting()" class="sr-only peer">
-                    <div class="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-blue-600 relative"></div>
-                </label>
+                <div>
+                    <button type="button"
+                        @click="rp.enabled = !rp.enabled; toggleHosting()"
+                        :aria-pressed="rp.enabled"
+                        :class="rp.enabled ? 'inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-600 text-white' : 'inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gray-200 text-gray-700'"
+                        class="transition">
+                        <span x-text="rp.enabled ? 'Activado' : 'Desactivado'"></span>
+                        <span class="w-5 h-5 bg-white rounded-full shadow-sm" :class="rp.enabled ? 'translate-x-1' : ''"></span>
+                    </button>
+                </div>
                 <div class="mt-4">
                     <button @click="refreshRpInfo()" class="px-4 py-2 bg-gray-100 rounded-lg">Actualizar estado</button>
                 </div>

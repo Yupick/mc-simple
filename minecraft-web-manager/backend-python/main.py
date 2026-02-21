@@ -15,6 +15,8 @@ from app.api.routes import auth, server, worlds, plugins, backups, config, syste
 from app.services.websocket_service import WebSocketService
 from app.services.recommended_plugins_service import recommended_plugins_service
 from app.services.mmorpg_service import mmorpg_service
+from app.db.session import SessionLocal
+from app.models.app_settings import AppSettings
 
 # Crear aplicación FastAPI
 app = FastAPI(
@@ -212,10 +214,25 @@ async def config_page(
     """Página de configuración"""
     if not user:
         return RedirectResponse(url="/login")
-    
+    # Obtener estado inicial de resourcepack desde la DB para renderizado inicial
+    rp_enabled = False
+    try:
+        db = SessionLocal()
+        setting = db.query(AppSettings).filter(AppSettings.key == 'resourcepack.hosted').first()
+        if setting and setting.value is not None:
+            rp_enabled = setting.value.lower() == 'true'
+    except Exception:
+        rp_enabled = False
+    finally:
+        try:
+            db.close()
+        except Exception:
+            pass
+
     return templates.TemplateResponse("config.html", {
         "request": request,
-        "user": user
+        "user": user,
+        "rp_enabled": rp_enabled
     })
 
 
