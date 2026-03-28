@@ -158,6 +158,12 @@ main() {
             exit 1
         fi
     done
+
+    # Cargar funciones compartidas de plugins si existen
+    if [ -f "./scripts/plugins.sh" ]; then
+        # shellcheck source=/dev/null
+        source "./scripts/plugins.sh"
+    fi
     
     # Verificar servidor
     check_server
@@ -292,6 +298,20 @@ main() {
     if [ -f "./server/paper.jar.old" ]; then
         print_info "JAR anterior disponible en: server/paper.jar.old"
         print_info "Puedes eliminarlo si todo funciona correctamente"
+    fi
+
+    # Opción: actualizar plugins
+    if declare -f update_plugins > /dev/null 2>&1; then
+        echo ""
+        read -p "¿Deseas actualizar los plugins a sus últimas versiones? [s/N]: " upd_plugins
+        if [[ "$upd_plugins" =~ ^[sS]$ ]]; then
+            if is_server_running; then
+                print_info "Deteniendo servidor para actualizar plugins..."
+                ./server/manage-control.sh stop || true
+                sleep 2
+            fi
+            update_plugins "./server/plugins"
+        fi
     fi
     
     # Resumen
