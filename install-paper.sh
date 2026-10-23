@@ -6,6 +6,9 @@
 
 set -e
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+SERVER_DIR="${SCRIPT_DIR}/server"
+
 # Colores para output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -34,9 +37,9 @@ print_error() {
 check_dependencies() {
     local missing_deps=()
     
-    for cmd in curl jq java; do
-        if ! command -v $cmd &> /dev/null; then
-            missing_deps+=($cmd)
+    for cmd in curl jq java unzip sha256sum; do
+        if ! command -v "$cmd" &> /dev/null; then
+            missing_deps+=("$cmd")
         fi
     done
     
@@ -46,19 +49,15 @@ check_dependencies() {
         print_info "  curl: sudo apt install curl"
         print_info "  jq: sudo apt install jq"
         print_info "  java: sudo apt install openjdk-21-jre-headless"
+        print_info "  unzip: sudo apt install unzip"
+        print_info "  sha256sum: instala el paquete coreutils de tu distribución"
         exit 1
     fi
 }
 
 # Obtener versiones de Paper desde 1.19
 get_paper_versions() {
-    versions=$(curl -s "https://api.papermc.io/v2/projects/paper" | jq -r '.versions[]' | awk -F. '{if ($2 >= 19) print}')
-    
-    if [ -z "$versions" ]; then
-        return 1
-    fi
-    
-    echo "$versions"
+    paper_api_list_versions
 }
 
 # Mostrar menú de versiones
@@ -102,49 +101,67 @@ select_version() {
 # Obtener último build de una versión
 get_latest_build() {
     local version=$1
-    
-    print_info "Obteniendo último build para la versión $version..." >&2
-    
-    build=$(curl -s "https://api.papermc.io/v2/projects/paper/versions/$version" | jq -r '.builds[-1]')
-    
-    if [ -z "$build" ] || [ "$build" = "null" ]; then
-        print_error "No se pudo obtener el build para la versión $version"
-        exit 1
-    fi
-    
-    echo "$build"
+
+    print_info "Obteniendo último build estable para la versión $version..." >&2
+    paper_api_latest_stable_build "$version"
 }
 
 # Descargar Paper
 download_paper() {
     local version=$1
-    local build=$2
+    local build_record=$2
     local dir=$3
-    
-    local filename="paper-${version}-${build}.jar"
-    local url="https://api.papermc.io/v2/projects/paper/versions/${version}/builds/${build}/downloads/${filename}"
-    
-    print_info "Descargando Paper ${version} (build ${build})..." >&2
-    
-    if curl -L -o "${dir}/${filename}" --progress-bar "$url"; then
-        # Renombrar a paper.jar para facilitar actualizaciones
-        mv "${dir}/${filename}" "${dir}/paper.jar"
-        print_success "Paper descargado exitosamente: paper.jar (${version}-${build})" >&2
-        echo "paper.jar"
-    else
-        print_error "Error al descargar Paper" >&2
-        exit 1
+
+    local build_id
+    local temporary_file
+
+    build_id=$(printf '%s' "$build_record" | jq -er '.id')
+    print_info "Descargando Paper ${version} (build ${build_id})..." >&2
+
+    if ! temporary_file=$(paper_api_download_build "$build_record" "$dir"); then
+        print_error "No se pudo descargar y validar Paper ${version} (build ${build_id})" >&2
+        return 1
     fi
+
+    if ! mv -f -- "$temporary_file" "${dir}/paper.jar"; then
+        rm -f -- "$temporary_file"
+        print_error "No se pudo instalar paper.jar" >&2
+        return 1
+    fi
+
+    print_success "Paper descargado y validado: paper.jar (${version}-${build_id})" >&2
+    printf '%s\n' "paper.jar"
 }
 
-# Descargar plugin ViaVersion
-# Cargar funciones compartidas de plugins
-if [ -f "./scripts/plugins.sh" ]; then
-    # shellcheck source=/dev/null
-    source "./scripts/plugins.sh"
-else
-    print_warning "Aviso: ./scripts/plugins.sh no encontrado; las funciones de plugin no estarán disponibles"
+if [ ! -f "${SCRIPT_DIR}/scripts/paper-api.sh" ] ||
+    [ ! -f "${SCRIPT_DIR}/scripts/plugins.sh" ]; then
+    print_error "Falta un helper requerido en ${SCRIPT_DIR}/scripts/"
+    exit 1
 fi
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/scripts/paper-api.sh"
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/scripts/plugins.sh"
+
+INSTALLED_PLUGINS=()
+FAILED_PLUGINS=()
+
+record_plugin_install() {
+    local plugin_name=$1
+    local download_function=$2
+    local result
+
+    if "$download_function" "$PLUGINS_DIR"; then
+        INSTALLED_PLUGINS+=("$plugin_name")
+    else
+        result=$?
+        if [ "$result" -eq 3 ]; then
+            INSTALLED_PLUGINS+=("$plugin_name")
+        else
+            FAILED_PLUGINS+=("$plugin_name")
+        fi
+    fi
+}
 
 # Crear eula.txt
 create_eula() {
@@ -336,7 +353,7 @@ stop_server() {
     local count=0
     while ps -p "\$pid" > /dev/null 2>&1 && [ \$count -lt \$timeout ]; do
         sleep 1
-        ((count++))
+        count=$((count + 1))
     done
     
     if ps -p "\$pid" > /dev/null 2>&1; then
@@ -474,16 +491,13 @@ main() {
     
     # Obtener versiones disponibles
     print_info "Obteniendo versiones disponibles de Paper..."
-    versions_raw=$(get_paper_versions)
-    
-    if [ -z "$versions_raw" ]; then
+    if ! versions_raw=$(get_paper_versions); then
         print_error "No se pudieron obtener las versiones de Paper"
         print_info "Verifica tu conexión a internet y que curl/jq estén instalados"
         exit 1
     fi
     
-    # Convertir a array, filtrando líneas vacías
-    mapfile -t versions < <(echo "$versions_raw" | grep -E '^[0-9]+\.[0-9]+' | sort -V)
+    mapfile -t versions <<< "$versions_raw"
     
     if [ ${#versions[@]} -eq 0 ]; then
         print_error "No se encontraron versiones válidas"
@@ -495,11 +509,14 @@ main() {
     print_success "Versión seleccionada: $selected_version"
     
     # Obtener último build
-    build=$(get_latest_build "$selected_version")
-    print_success "Build seleccionado: $build"
+    if ! build_record=$(get_latest_build "$selected_version"); then
+        print_error "No se pudo obtener un build estable para $selected_version"
+        exit 1
+    fi
+    build_id=$(printf '%s' "$build_record" | jq -er '.id')
+    print_success "Build estable seleccionado: $build_id"
     
     # Crear directorio del servidor
-    SERVER_DIR="./server"
     if [ -d "$SERVER_DIR" ]; then
         print_warning "El directorio 'server' ya existe"
         read -p "¿Deseas continuar? Esto sobrescribirá archivos existentes [s/N]: " confirm
@@ -526,35 +543,36 @@ main() {
     print_success "Directorios creados: server/, plugins/ y estructura de mundos"
     
     # Descargar Paper
-    jar_file=$(download_paper "$selected_version" "$build" "$SERVER_DIR")
+    jar_file=$(download_paper "$selected_version" "$build_record" "$SERVER_DIR")
     
     # Preguntar por plugins de compatibilidad
     echo ""
     read -p "¿Deseas descargar ViaVersion + ViaBackwards (compatibilidad con todas las versiones)? [s/N]: " install_via
     if [[ "$install_via" =~ ^[sS]$ ]]; then
-        download_viaversion "$PLUGINS_DIR"
-        download_viabackwards "$PLUGINS_DIR"
+        record_plugin_install "ViaVersion" download_viaversion
+        record_plugin_install "ViaBackwards" download_viabackwards
     fi
     
     # Preguntar por ProtocolLib
     echo ""
     read -p "¿Deseas descargar ProtocolLib (requerido por muchos plugins)? [s/N]: " install_protocol
     if [[ "$install_protocol" =~ ^[sS]$ ]]; then
-        download_protocollib "$PLUGINS_DIR"
+        record_plugin_install "ProtocolLib" download_protocollib
     fi
     
     # Preguntar por Vault
     echo ""
-    read -p "¿Deseas descargar Vault (sistema de economía y permisos)? [s/N]: " install_vault
+    read -p "¿Deseas descargar VaultUnlocked (compatibilidad con plugins que requieren Vault)? [s/N]: " install_vault
     if [[ "$install_vault" =~ ^[sS]$ ]]; then
-        download_vault "$PLUGINS_DIR"
+        record_plugin_install "VaultUnlocked" download_vault
     fi
     
     # Preguntar por Geyser
     echo ""
     read -p "¿Deseas descargar Geyser + Floodgate (compatibilidad Bedrock/Java)? [s/N]: " install_geyser
     if [[ "$install_geyser" =~ ^[sS]$ ]]; then
-        download_geyser "$PLUGINS_DIR"
+        record_plugin_install "Geyser" download_geyser
+        record_plugin_install "Floodgate" download_floodgate
     fi
     
     # Crear archivos de configuración
@@ -579,26 +597,22 @@ main() {
     # Resumen final
     echo ""
     echo "╔════════════════════════════════════════════════════════╗"
-    echo "║   ✓ Instalación completada exitosamente               ║"
+    echo "║   Resumen de instalación de Minecraft Paper            ║"
     echo "╚════════════════════════════════════════════════════════╝"
     echo ""
-    print_success "Servidor Minecraft Paper instalado correctamente"
-    echo ""
     print_info "Resumen de la instalación:"
-    echo "  • Versión: Paper $selected_version (build $build)"
+    echo "  • Versión: Paper $selected_version (build $build_id)"
     echo "  • Directorio: $SERVER_DIR"
-    echo "  • JAR: $jar_file (paper-$selected_version-$build)"
-    echo "  • Plugins instalados:"
-    if [[ "$install_via" =~ ^[sS]$ ]]; then
-        echo "    - ViaVersion (compatibilidad versiones nuevas)"
-        echo "    - ViaBackwards (compatibilidad versiones antiguas)"
+    echo "  • JAR: $jar_file (paper-$selected_version-$build_id)"
+    if [ "${#INSTALLED_PLUGINS[@]}" -gt 0 ]; then
+        echo "  • Plugins instalados:"
+        printf '    - %s\n' "${INSTALLED_PLUGINS[@]}"
+    else
+        echo "  • Plugins instalados: ninguno"
     fi
-    if [[ "$install_protocol" =~ ^[sS]$ ]]; then
-        echo "    - ProtocolLib (biblioteca de protocolos)"
-    fi
-    if [[ "$install_geyser" =~ ^[sS]$ ]]; then
-        echo "    - Geyser (compatibilidad Bedrock)"
-        echo "    - Floodgate (complemento de Geyser)"
+    if [ "${#FAILED_PLUGINS[@]}" -gt 0 ]; then
+        echo "  • Plugins con error:"
+        printf '    - %s\n' "${FAILED_PLUGINS[@]}"
     fi
     echo ""
     print_info "Próximos pasos:"
@@ -609,6 +623,13 @@ main() {
     echo ""
     print_info "El servidor RCON está habilitado en el puerto 25575, contraseña: minecraft"
     echo ""
+
+    if [ "${#FAILED_PLUGINS[@]}" -gt 0 ]; then
+        print_warning "El servidor quedó instalado, pero falló la descarga de uno o más plugins seleccionados."
+        exit 1
+    fi
+
+    print_success "Servidor Minecraft Paper instalado correctamente"
 }
 
 # Ejecutar script principal

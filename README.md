@@ -9,13 +9,14 @@ Antes de ejecutar el instalador, asegúrate de tener instalados:
 ```bash
 # Ubuntu/Debian
 sudo apt update
-sudo apt install curl jq openjdk-21-jre-headless screen
+sudo apt install curl jq unzip openjdk-21-jre-headless
 
 # O verifica qué tienes instalado
 curl --version
 jq --version
 java --version
-screen --version
+unzip -v
+sha256sum --version
 ```
 
 ## 🚀 Instalación Rápida
@@ -29,6 +30,9 @@ screen --version
    - Selecciona la versión de Minecraft (desde 1.19 en adelante)
    - Decide si instalar plugins de compatibilidad:
      - **ViaVersion**: permite que jugadores con versiones anteriores/posteriores se conecten
+     - **ViaBackwards**: se instala junto con ViaVersion para versiones anteriores
+     - **ProtocolLib**: biblioteca usada por algunos plugins
+     - **VaultUnlocked**: API compatible con plugins que requieren Vault
      - **Geyser + Floodgate**: permite que jugadores de Bedrock Edition se conecten
 
 3. **El instalador creará:**
@@ -59,7 +63,7 @@ cd server
 
 # Ver los logs en tiempo real
 ./manage-control.sh logs
-# IMPORTANTE: Presiona Ctrl+A y luego D para salir sin cerrar el servidor
+# Presiona Ctrl+C para volver; el servidor seguirá ejecutándose
 
 # Abrir cliente de consola para enviar comandos
 ./manage-control.sh console
@@ -108,6 +112,34 @@ Una vez dentro:
    - Permite que jugadores de Bedrock Edition (consolas, móviles) se conecten
    - Puerto Bedrock predeterminado: 19132 (UDP)
 
+3. **ViaBackwards**
+   - Complementa ViaVersion para compatibilidad con versiones anteriores
+
+4. **ProtocolLib**
+   - Biblioteca de protocolos utilizada por algunos plugins
+
+5. **VaultUnlocked**
+   - Implementación compatible con plugins que requieren la API de Vault
+
+### Actualizar Paper y los plugins soportados
+
+Desde el directorio del proyecto, ejecuta:
+
+```bash
+./update-paper.sh
+```
+
+El actualizador consulta la API actual de Paper y solo instala builds estables. También permite actualizar plugins aunque Paper ya esté al día. Solo actualiza los plugins soportados que ya existan en `server/plugins`; no instala los plugins opcionales que falten ni modifica plugins ajenos a esta lista:
+
+- ViaVersion
+- ViaBackwards
+- ProtocolLib
+- VaultUnlocked
+- Geyser
+- Floodgate
+
+Si el proveedor no ofrece una versión estable o la descarga no supera las validaciones, se conserva el JAR instalado y se informa el resultado. Antes de reemplazar archivos, el script pide detener el servidor y crea un backup.
+
 ### 🎮 Gestión Avanzada
 - **Logs en tiempo real**: Ve qué sucede en el servidor sin interferir
 - **Detención segura**: Guarda el mundo antes de cerrar
@@ -151,9 +183,9 @@ cd server
 ./manage-control.sh logs
 ```
 
-### Screen no encontrado
+### unzip no encontrado
 ```bash
-sudo apt install screen
+sudo apt install unzip
 ```
 
 ### Puerto ya en uso
@@ -188,14 +220,22 @@ nano server/server.properties
 ```
 mc-paper/
 ├── install-paper.sh          # Script de instalación
+├── update-paper.sh           # Actualizador de Paper y plugins soportados
+├── scripts/
+│   ├── paper-api.sh          # Funciones de Paper Fill API v3
+│   └── plugins.sh            # Descargas de plugins soportados
 ├── README.md                 # Este archivo
 └── server/                   # Carpeta del servidor (creada al instalar)
-    ├── paper-X.XX-XXX.jar   # Servidor Paper
+    ├── paper.jar            # Servidor Paper
+    ├── paper.jar.old        # JAR anterior tras una actualización (opcional)
     ├── manage-control.sh     # Script de gestión
     ├── eula.txt             # EULA aceptado
     ├── server.properties    # Configuración del servidor
     ├── plugins/             # Carpeta de plugins
     │   ├── ViaVersion.jar   # (opcional)
+    │   ├── ViaBackwards.jar # (opcional)
+    │   ├── ProtocolLib.jar  # (opcional)
+    │   ├── VaultUnlocked.jar # (opcional)
     │   ├── Geyser-Spigot.jar # (opcional)
     │   └── floodgate-spigot.jar # (opcional)
     ├── world/               # Mundo principal (generado)
