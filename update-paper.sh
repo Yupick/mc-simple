@@ -1,9 +1,15 @@
 #!/bin/bash
 
-# Script de actualización de Paper MC
-# Actualiza el servidor Paper a la última versión o a una versión específica
+# Script de actualización de Paper y plugins soportados.
 
 set -e
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$SCRIPT_DIR"
+SERVER_DIR="${PROJECT_DIR}/server"
+PLUGINS_DIR="${SERVER_DIR}/plugins"
+BACKUP_DIR="${PROJECT_DIR}/backups"
+SERVER_PID_FILE="${SERVER_DIR}/server.pid"
 
 # Colores
 RED='\033[0;31m'
@@ -17,336 +23,469 @@ print_success() { echo -e "${GREEN}[✓]${NC} $1"; }
 print_warning() { echo -e "${YELLOW}[!]${NC} $1"; }
 print_error() { echo -e "${RED}[✗]${NC} $1"; }
 
-# Verificar que existe el servidor
-check_server() {
-    if [ ! -d "./server" ]; then
-        print_error "No se encontró el directorio del servidor"
-        print_info "Ejecuta primero ./install-paper.sh"
-        exit 1
-    fi
-}
+if [ ! -f "${SCRIPT_DIR}/scripts/paper-api.sh" ] ||
+    [ ! -f "${SCRIPT_DIR}/scripts/plugins.sh" ]; then
+    print_error "Falta un helper requerido en ${SCRIPT_DIR}/scripts/"
+    exit 1
+fi
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/scripts/paper-api.sh"
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/scripts/plugins.sh"
 
-# Detectar versión actual
-detect_current_version() {
-    # Buscar paper.jar o paper.jar.old, o cualquier paper-*.jar
-    local jar="server/paper.jar"
-    
-    if [ ! -f "$jar" ]; then
-        jar=$(ls server/paper-*.jar 2>/dev/null | head -n 1)
-    fi
-    
-    if [ -z "$jar" ] || [ ! -f "$jar" ]; then
-        print_error "No se encontró el JAR de Paper actual"
-        print_info "Busca en server/ algún archivo .jar de Paper"
-        exit 1
-    fi
-    
-    print_info "Detectando versión desde el servidor..."
-    
-    # Intentar obtener versión ejecutando el JAR
-    local version_info=$(cd server && java -jar $(basename "$jar") --version 2>/dev/null | head -1)
-    
-    if [ -z "$version_info" ]; then
-        # Si no se puede ejecutar, intentar del nombre del archivo si tiene
-        if [[ "$jar" =~ paper-([0-9.]+)-([0-9]+)\.jar ]]; then
-            local version="${BASH_REMATCH[1]}"
-            local build="${BASH_REMATCH[2]}"
-            echo "${version}:${build}"
-        else
-            print_warning "No se pudo detectar la versión automáticamente"
-            echo "unknown:0"
+PLUGIN_BACKUP_FILE=""
+
+check_dependencies() {
+    local missing_deps=()
+
+    for cmd in curl jq java tar unzip sha256sum; do
+        if ! command -v "$cmd" >/dev/null 2>&1; then
+            missing_deps+=("$cmd")
         fi
-    else
-        # Parsear output del --version
-        local version=$(echo "$version_info" | grep -oP '\d+\.\d+(\.\d+)?' | head -1)
-        local build=$(echo "$version_info" | grep -oP 'git-Paper-\K\d+' | head -1)
-        echo "${version}:${build}"
-    fi
-}
+    done
 
-# Obtener último build de una versión
-get_latest_build() {
-    local version=$1
-    
-    build=$(curl -s "https://api.papermc.io/v2/projects/paper/versions/$version" | jq -r '.builds[-1]')
-    
-    if [ -z "$build" ] || [ "$build" = "null" ]; then
-        echo ""
-    else
-        echo "$build"
-    fi
-}
-
-# Descargar nueva versión
-download_paper() {
-    local version=$1
-    local build=$2
-    local dir=$3
-    
-    local filename="paper-${version}-${build}.jar"
-    local url="https://api.papermc.io/v2/projects/paper/versions/${version}/builds/${build}/downloads/${filename}"
-    
-    print_info "Descargando Paper ${version} (build ${build})..."
-    
-    if curl -L -o "${dir}/${filename}" --progress-bar "$url"; then
-        # Hacer backup del paper.jar actual si existe
-        if [ -f "${dir}/paper.jar" ]; then
-            mv "${dir}/paper.jar" "${dir}/paper.jar.old"
-            print_info "Backup del JAR anterior guardado como paper.jar.old"
-        fi
-        # Renombrar el nuevo a paper.jar
-        mv "${dir}/${filename}" "${dir}/paper.jar"
-        echo "paper.jar"
-    else
-        echo ""
-    fi
-}
-
-# Crear backup
-create_backup() {
-    local backup_dir="./backups"
-    mkdir -p "$backup_dir"
-    
-    local date=$(date +%Y%m%d-%H%M%S)
-    local backup_file="${backup_dir}/pre-update-backup-${date}.tar.gz"
-    
-    print_info "Creando backup del servidor..."
-    
-    if tar -czf "$backup_file" server/ 2>/dev/null; then
-        print_success "Backup creado: $(basename $backup_file)"
-        echo "$backup_file"
-    else
-        print_error "Error al crear backup"
+    if [ "${#missing_deps[@]}" -gt 0 ]; then
+        print_error "Faltan dependencias: ${missing_deps[*]}"
+        print_info "Instala las dependencias con: sudo apt install curl jq openjdk-21-jre-headless tar unzip coreutils"
         return 1
     fi
 }
 
-# Verificar si el servidor está corriendo
-is_server_running() {
-    screen -list | grep -q "minecraft-server"
-}
-
-# Actualizar manage-control.sh con nuevo JAR (ya no es necesario si siempre es paper.jar)
-update_management_script() {
-    local old_jar=$1
-    local new_jar=$2
-    
-    # Como ahora siempre usamos paper.jar, no necesitamos actualizar nada
-    # Pero verificamos que esté configurado correctamente
-    if [ -f "./server/manage-control.sh" ]; then
-        if ! grep -q 'JAR_FILE="paper.jar"' "./server/manage-control.sh"; then
-            sed -i 's|JAR_FILE="[^"]*"|JAR_FILE="paper.jar"|g' "./server/manage-control.sh"
-            print_success "Script de gestión actualizado a paper.jar"
-        else
-            print_info "Script de gestión ya está usando paper.jar"
-        fi
+check_server() {
+    if [ ! -d "$SERVER_DIR" ]; then
+        print_error "No se encontró el directorio del servidor: ${SERVER_DIR}"
+        print_info "Ejecuta primero install-paper.sh"
+        return 1
     fi
 }
 
-# Main
+detect_current_version() {
+    local jar="${SERVER_DIR}/paper.jar"
+    local jar_name
+    local version_info
+    local version
+    local build
+
+    if [ ! -f "$jar" ]; then
+        jar=$(find "$SERVER_DIR" -maxdepth 1 -type f -name 'paper-*.jar' -print -quit)
+    fi
+
+    if [ -z "$jar" ] || [ ! -f "$jar" ]; then
+        print_error "No se encontró el JAR de Paper actual"
+        return 1
+    fi
+
+    jar_name=$(basename "$jar")
+    print_info "Detectando versión actual de Paper..." >&2
+
+    version_info=$(cd "$SERVER_DIR" && java -jar "$jar_name" --version 2>/dev/null | head -n 1)
+    version=$(printf '%s\n' "$version_info" | grep -oP '\d+\.\d+(\.\d+)?' | head -n 1 || true)
+    build=$(printf '%s\n' "$version_info" | grep -oP 'git-Paper-\K\d+' | head -n 1 || true)
+
+    if [[ "$jar_name" =~ ^paper-([0-9.]+)-([0-9]+)\.jar$ ]]; then
+        [ -n "$version" ] || version="${BASH_REMATCH[1]}"
+        [ -n "$build" ] || build="${BASH_REMATCH[2]}"
+    fi
+
+    if [ -z "$version" ]; then
+        print_error "No se pudo detectar la versión Minecraft del JAR de Paper" >&2
+        return 1
+    fi
+
+    if [ -z "$build" ]; then
+        build="unknown"
+    fi
+
+    printf '%s:%s\n' "$version" "$build"
+}
+
+get_latest_build() {
+    local version=$1
+    paper_api_latest_stable_build "$version"
+}
+
+download_paper() {
+    local version=$1
+    local build_record=$2
+    local dir=$3
+    local build_id
+    local temporary_file
+    local current_jar="${dir}/paper.jar"
+    local backup_jar="${dir}/paper.jar.old"
+
+    build_id=$(printf '%s' "$build_record" | jq -er '.id')
+    print_info "Descargando Paper ${version} (build ${build_id})..." >&2
+
+    if ! temporary_file=$(paper_api_download_build "$build_record" "$dir"); then
+        print_error "No se pudo descargar y validar Paper ${version} (build ${build_id})" >&2
+        return 1
+    fi
+
+    if [ -f "$current_jar" ] && ! mv -f -- "$current_jar" "$backup_jar"; then
+        rm -f -- "$temporary_file"
+        print_error "No se pudo respaldar el JAR actual de Paper" >&2
+        return 1
+    fi
+
+    if ! mv -f -- "$temporary_file" "$current_jar"; then
+        rm -f -- "$temporary_file"
+        if [ -f "$backup_jar" ] && [ ! -f "$current_jar" ]; then
+            mv -f -- "$backup_jar" "$current_jar"
+        fi
+        print_error "No se pudo instalar el nuevo JAR de Paper" >&2
+        return 1
+    fi
+
+    print_success "Paper instalado y validado: ${version} (build ${build_id})" >&2
+    printf '%s\n' "paper.jar"
+}
+
+create_backup() {
+    local target=$1
+    local prefix=$2
+    local timestamp
+    local backup_file
+
+    mkdir -p "$BACKUP_DIR"
+    timestamp=$(date +%Y%m%d-%H%M%S)
+    backup_file="${BACKUP_DIR}/${prefix}-${timestamp}.tar.gz"
+
+    print_info "Creando backup de ${target}..." >&2
+    if tar -czf "$backup_file" -C "$PROJECT_DIR" "$target" 2>/dev/null; then
+        print_success "Backup creado: $(basename "$backup_file")" >&2
+        printf '%s\n' "$backup_file"
+    else
+        rm -f -- "$backup_file"
+        print_error "No se pudo crear el backup de ${target}" >&2
+        return 1
+    fi
+}
+
+read_server_pid() {
+    local pid
+
+    if [ ! -r "$SERVER_PID_FILE" ]; then
+        return 1
+    fi
+
+    IFS= read -r pid < "$SERVER_PID_FILE" || return 1
+    if [[ ! "$pid" =~ ^[1-9][0-9]*$ ]]; then
+        return 1
+    fi
+
+    printf '%s\n' "$pid"
+}
+
+pid_is_running() {
+    local pid=$1
+    local process_state
+
+    if ! kill -0 "$pid" 2>/dev/null; then
+        return 1
+    fi
+
+    process_state=$(ps -p "$pid" -o stat= 2>/dev/null || true)
+    [[ -n "$process_state" && "$process_state" != Z* ]]
+}
+
+is_server_running() {
+    local pid
+    pid=$(read_server_pid) || return 1
+    pid_is_running "$pid"
+}
+
+stop_server_for_update() {
+    local pid
+    local attempt
+
+    if [ ! -e "$SERVER_PID_FILE" ]; then
+        return 0
+    fi
+
+    if ! pid=$(read_server_pid); then
+        print_error "El archivo server.pid existe, pero no contiene un PID válido"
+        return 1
+    fi
+
+    if ! pid_is_running "$pid"; then
+        rm -f -- "$SERVER_PID_FILE"
+        return 0
+    fi
+
+    print_warning "El servidor está activo (PID ${pid})"
+    read -r -p "¿Deseas detenerlo antes de actualizar? [s/N]: " stop_confirm
+    if [[ ! "$stop_confirm" =~ ^[sS]$ ]]; then
+        print_error "Actualización cancelada: el servidor debe estar detenido"
+        return 1
+    fi
+
+    if [ ! -x "${SERVER_DIR}/manage-control.sh" ]; then
+        print_error "No se encontró un manage-control.sh ejecutable para detener el servidor"
+        return 1
+    fi
+
+    if ! "${SERVER_DIR}/manage-control.sh" stop; then
+        print_warning "manage-control.sh devolvió error; se verificará el proceso antes de continuar"
+    fi
+
+    for ((attempt = 0; attempt < 35; attempt++)); do
+        if ! pid_is_running "$pid"; then
+            rm -f -- "$SERVER_PID_FILE"
+            print_success "Servidor detenido"
+            return 0
+        fi
+        sleep 1
+    done
+
+    print_error "El proceso del servidor sigue activo; no se reemplazará ningún JAR"
+    return 1
+}
+
+update_management_script() {
+    local management_script="${SERVER_DIR}/manage-control.sh"
+
+    if [ -f "$management_script" ] &&
+        ! grep -q 'JAR_FILE="paper.jar"' "$management_script"; then
+        sed -i 's|JAR_FILE="[^"]*"|JAR_FILE="paper.jar"|g' "$management_script"
+        print_success "Script de gestión actualizado a paper.jar"
+    fi
+}
+
+update_installed_plugins() {
+    local create_plugin_backup=${1:-true}
+    local plugin_backup=""
+
+    PLUGIN_BACKUP_FILE=""
+
+    if ! has_managed_plugins "$PLUGINS_DIR"; then
+        update_plugins "$PLUGINS_DIR"
+        return $?
+    fi
+
+    if ! stop_server_for_update; then
+        return 1
+    fi
+
+    if [[ "$create_plugin_backup" == true ]]; then
+        if ! plugin_backup=$(create_backup "server/plugins" "pre-plugin-update"); then
+            return 1
+        fi
+    fi
+
+    PLUGIN_BACKUP_FILE=$plugin_backup
+    if ! update_plugins "$PLUGINS_DIR"; then
+        return 1
+    fi
+}
+
+ask_to_start_server() {
+    local start_now
+
+    if is_server_running; then
+        print_info "El servidor sigue activo"
+        return 0
+    fi
+
+    read -r -p "¿Deseas iniciar el servidor ahora? [s/N]: " start_now
+    if [[ "$start_now" =~ ^[sS]$ ]]; then
+        print_info "Iniciando servidor..."
+        "${SERVER_DIR}/manage-control.sh" start
+    fi
+}
+
 main() {
+    local current
+    local current_version
+    local current_build
+    local target_version
+    local versions_raw
+    local ver_num
+    local build_record
+    local latest_build
+    local latest_build_id
+    local option
+    local confirm
+    local backup_file=""
+    local new_jar
+    local update_plugins_confirm
+    local plugin_update_failed=0
+
     echo ""
     echo "╔════════════════════════════════════════════════════════╗"
     echo "║   Actualizador de Servidor Minecraft Paper             ║"
     echo "╚════════════════════════════════════════════════════════╝"
     echo ""
-    
-    # Verificar dependencias
-    for cmd in curl jq tar; do
-        if ! command -v $cmd &> /dev/null; then
-            print_error "Falta dependencia: $cmd"
-            exit 1
-        fi
-    done
 
-    # Cargar funciones compartidas de plugins si existen
-    if [ -f "./scripts/plugins.sh" ]; then
-        # shellcheck source=/dev/null
-        source "./scripts/plugins.sh"
-    fi
-    
-    # Verificar servidor
+    check_dependencies
     check_server
-    
-    # Detectar versión actual
-    print_info "Detectando versión actual..."
-    current=$(detect_current_version)
-    current_version=$(echo "$current" | cut -d: -f1)
-    current_build=$(echo "$current" | cut -d: -f2)
-    
-    print_success "Versión actual: Paper $current_version (build $current_build)"
-    
-    # Preguntar tipo de actualización
+
+    if ! current=$(detect_current_version); then
+        print_error "No se puede continuar sin identificar la versión actual"
+        exit 1
+    fi
+    IFS=: read -r current_version current_build <<< "$current"
+    print_success "Versión actual: Paper ${current_version} (build ${current_build})"
+
     echo ""
     echo "Opciones de actualización:"
-    echo "  1) Actualizar a la última versión de la misma serie ($current_version)"
+    echo "  1) Actualizar Paper a la última versión de la misma serie (${current_version})"
     echo "  2) Cambiar a otra versión de Minecraft"
-    echo "  3) Cancelar"
+    echo "  3) Actualizar solo los plugins soportados instalados"
+    echo "  4) Cancelar"
     echo ""
-    read -p "Selecciona una opción [1-3]: " option
-    
+    read -r -p "Selecciona una opción [1-3]: " option
+
     case $option in
         1)
             target_version="$current_version"
-            print_info "Buscando última versión de $target_version..."
             ;;
         2)
-            # Obtener versiones disponibles
-            versions=$(curl -s "https://api.papermc.io/v2/projects/paper" | jq -r '.versions[]' | awk -F. '{if ($2 >= 19) print}')
-            
-            echo ""
-            print_info "Versiones disponibles:"
-            echo "$versions" | nl
-            echo ""
-            read -p "Ingresa el número de la versión deseada: " ver_num
-            
-            target_version=$(echo "$versions" | sed -n "${ver_num}p")
-            
-            if [ -z "$target_version" ]; then
-                print_error "Versión inválida"
+            if ! versions_raw=$(paper_api_list_versions); then
+                print_error "No se pudieron obtener las versiones de Paper"
                 exit 1
             fi
-            
-            print_warning "⚠️  ADVERTENCIA: Cambiar de versión puede causar problemas de compatibilidad"
-            print_warning "     Asegúrate de que tus plugins sean compatibles con $target_version"
-            echo ""
-            read -p "¿Deseas continuar? [s/N]: " confirm
-            
+
+            mapfile -t versions <<< "$versions_raw"
+            print_info "Versiones disponibles:"
+            printf '%s\n' "${versions[@]}" | nl
+            read -r -p "Ingresa el número de la versión deseada: " ver_num
+
+            if ! [[ "$ver_num" =~ ^[0-9]+$ ]] ||
+                [ "$ver_num" -lt 1 ] ||
+                [ "$ver_num" -gt "${#versions[@]}" ]; then
+                print_error "Selección de versión inválida"
+                exit 1
+            fi
+
+            target_version=${versions[$((ver_num - 1))]}
+            print_warning "Cambiar de versión puede afectar el mundo y la compatibilidad de plugins."
+            read -r -p "¿Deseas continuar? [s/N]: " confirm
             if [[ ! "$confirm" =~ ^[sS]$ ]]; then
-                print_info "Actualización cancelada"
+                print_info "Cambio de versión cancelado"
                 exit 0
             fi
             ;;
-        3|*)
+        3)
+            if ! update_installed_plugins true; then
+                if [ -n "$PLUGIN_BACKUP_FILE" ]; then
+                    print_info "Backup de plugins guardado en: $(basename "$PLUGIN_BACKUP_FILE")"
+                fi
+                ask_to_start_server
+                exit 1
+            fi
+            if [ -n "$PLUGIN_BACKUP_FILE" ]; then
+                print_info "Backup de plugins guardado en: $(basename "$PLUGIN_BACKUP_FILE")"
+            fi
+            ask_to_start_server
+            exit 0
+            ;;
+        *)
             print_info "Actualización cancelada"
             exit 0
             ;;
     esac
-    
-    # Obtener último build
-    latest_build=$(get_latest_build "$target_version")
-    
-    if [ -z "$latest_build" ]; then
-        print_error "No se pudo obtener información de build para $target_version"
+
+    if ! build_record=$(get_latest_build "$target_version"); then
+        print_error "No se pudo resolver un build estable de Paper ${target_version}"
         exit 1
     fi
-    
-    # Verificar si ya está actualizado
-    if [ "$target_version" = "$current_version" ] && [ "$latest_build" = "$current_build" ]; then
-        print_success "Ya tienes la última versión instalada!"
+    latest_build_id=$(printf '%s' "$build_record" | jq -er '.id')
+
+    if [ "$target_version" = "$current_version" ] &&
+        [ "$latest_build_id" = "$current_build" ]; then
+        print_success "Paper ya está en el último build estable (${latest_build_id})"
+        read -r -p "¿Deseas actualizar los plugins soportados instalados? [s/N]: " update_plugins_confirm
+
+        if [[ "$update_plugins_confirm" =~ ^[sS]$ ]]; then
+            if ! update_installed_plugins true; then
+                plugin_update_failed=1
+            fi
+            if [ -n "$PLUGIN_BACKUP_FILE" ]; then
+                print_info "Backup de plugins guardado en: $(basename "$PLUGIN_BACKUP_FILE")"
+            fi
+            if ! is_server_running; then
+                ask_to_start_server
+            fi
+        fi
+
+        if [ "$plugin_update_failed" -ne 0 ]; then
+            exit 1
+        fi
         exit 0
     fi
-    
-    print_success "Nueva versión disponible: Paper $target_version (build $latest_build)"
-    
-    # Confirmar actualización
+
+    print_success "Nuevo build estable disponible: Paper ${target_version} (build ${latest_build_id})"
     echo ""
-    print_warning "Se actualizará de:"
-    echo "  Paper $current_version (build $current_build)"
-    print_warning "A:"
-    echo "  Paper $target_version (build $latest_build)"
-    echo ""
-    read -p "¿Continuar con la actualización? [s/N]: " confirm
-    
+    print_warning "Se actualizará Paper ${current_version} (build ${current_build}) a ${target_version} (build ${latest_build_id})"
+    read -r -p "¿Continuar con la actualización? [s/N]: " confirm
     if [[ ! "$confirm" =~ ^[sS]$ ]]; then
         print_info "Actualización cancelada"
         exit 0
     fi
-    
-    # Verificar si el servidor está corriendo
-    if is_server_running; then
-        print_warning "El servidor está corriendo"
-        read -p "¿Deseas detenerlo para actualizar? [s/N]: " stop_confirm
-        
-        if [[ "$stop_confirm" =~ ^[sS]$ ]]; then
-            print_info "Deteniendo servidor..."
-            ./server/manage-control.sh stop
-            sleep 3
-        else
-            print_error "No se puede actualizar con el servidor corriendo"
-            exit 1
-        fi
+
+    if ! stop_server_for_update; then
+        exit 1
     fi
-    
-    # Crear backup
-    echo ""
-    backup_file=$(create_backup)
-    
-    if [ -z "$backup_file" ]; then
-        print_error "No se pudo crear backup"
-        read -p "¿Continuar sin backup? [s/N]: " no_backup
-        
-        if [[ ! "$no_backup" =~ ^[sS]$ ]]; then
+
+    if ! backup_file=$(create_backup "server" "pre-update-backup"); then
+        read -r -p "¿Continuar sin backup? [s/N]: " confirm
+        if [[ ! "$confirm" =~ ^[sS]$ ]]; then
             print_info "Actualización cancelada"
             exit 1
         fi
     fi
-    
-    # Descargar nueva versión
-    echo ""
-    new_jar=$(download_paper "$target_version" "$latest_build" "./server")
-    
-    if [ -z "$new_jar" ]; then
-        print_error "Error al descargar la nueva versión"
+
+    if ! new_jar=$(download_paper "$target_version" "$build_record" "$SERVER_DIR"); then
+        print_error "No se pudo instalar el nuevo JAR de Paper"
         exit 1
     fi
-    
-    # Actualizar script de gestión
-    update_management_script "$new_jar" "$new_jar"
-    
-    # El JAR antiguo ya está respaldado como paper.jar.old
-    if [ -f "./server/paper.jar.old" ]; then
+
+    update_management_script
+
+    if [ -f "${SERVER_DIR}/paper.jar.old" ]; then
         print_info "JAR anterior disponible en: server/paper.jar.old"
-        print_info "Puedes eliminarlo si todo funciona correctamente"
     fi
 
-    # Opción: actualizar plugins
-    if declare -f update_plugins > /dev/null 2>&1; then
-        echo ""
-        read -p "¿Deseas actualizar los plugins a sus últimas versiones? [s/N]: " upd_plugins
-        if [[ "$upd_plugins" =~ ^[sS]$ ]]; then
-            if is_server_running; then
-                print_info "Deteniendo servidor para actualizar plugins..."
-                ./server/manage-control.sh stop || true
-                sleep 2
-            fi
-            update_plugins "./server/plugins"
+    read -r -p "¿Deseas actualizar los plugins soportados instalados? [s/N]: " update_plugins_confirm
+    if [[ "$update_plugins_confirm" =~ ^[sS]$ ]]; then
+        if ! update_installed_plugins false; then
+            plugin_update_failed=1
         fi
     fi
-    
-    # Resumen
+
     echo ""
     echo "╔════════════════════════════════════════════════════════╗"
-    echo "║   ✓ Actualización completada exitosamente             ║"
-    echo "╚════════════════════════════════════════════════════════╝"
-    echo ""
-    print_success "Servidor actualizado a Paper $target_version (build $latest_build)"
-    
-    if [ ! -z "$backup_file" ]; then
-        print_info "Backup guardado en: $(basename $backup_file)"
+    if [ "$plugin_update_failed" -eq 0 ]; then
+        echo "║   ✓ Actualización completada                           ║"
+    else
+        echo "║   ! Actualización parcial: revisar plugins              ║"
     fi
-    
+    echo "╚════════════════════════════════════════════════════════╝"
+    print_success "Paper actualizado a ${target_version} (build ${latest_build_id})"
+
+    if [ -n "$backup_file" ]; then
+        print_info "Backup guardado en: $(basename "$backup_file")"
+    fi
+    if [ -n "$PLUGIN_BACKUP_FILE" ]; then
+        print_info "Backup de plugins guardado en: $(basename "$PLUGIN_BACKUP_FILE")"
+    fi
+
     echo ""
     print_info "Próximos pasos:"
-    echo "  1. Revisa las notas de la versión en: https://papermc.io/downloads/paper"
-    echo "  2. Verifica la compatibilidad de tus plugins"
-    echo "  3. Inicia el servidor: cd server && ./manage-control.sh start"
-    echo "  4. Revisa los logs por errores: ./manage-control.sh logs"
+    echo "  1. Revisa la compatibilidad de los plugins"
+    echo "  2. Inicia el servidor: ./server/manage-control.sh start"
+    echo "  3. Revisa los logs: ./server/manage-control.sh logs"
     echo ""
-    
-    print_warning "Si algo sale mal, puedes restaurar el backup:"
-    if [ ! -z "$backup_file" ]; then
-        echo "  tar -xzf $(basename $backup_file)"
+
+    if [ -n "$backup_file" ]; then
+        print_warning "Para restaurar el backup: tar -xzf \"$backup_file\" -C \"$PROJECT_DIR\""
     fi
-    
-    echo ""
-    read -p "¿Deseas iniciar el servidor ahora? [s/N]: " start_now
-    
-    if [[ "$start_now" =~ ^[sS]$ ]]; then
-        print_info "Iniciando servidor..."
-        cd server
-        ./manage-control.sh start
+
+    ask_to_start_server
+
+    if [ "$plugin_update_failed" -ne 0 ]; then
+        exit 1
     fi
 }
 
-main
+main "$@"
