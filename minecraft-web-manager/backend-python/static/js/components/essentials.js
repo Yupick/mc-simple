@@ -9,8 +9,53 @@ function essentialsManager(){
         viewMode: 'raw',
 
         async init(){
+            await this.loadTranslations();
             await this.loadConfig();
             await this.loadFiles();
+        },
+
+        async loadTranslations(){
+            try{
+                // Cargar español por defecto si existe
+                let res = await fetch('/static/i18n/es/essentials.json');
+                if(res && res.ok){
+                    const data = await res.json();
+                    if(data.labels) this.translations = Object.assign({}, this.translations, data.labels);
+                    this.helpMap = Object.assign({}, this.helpMap || {}, data.helps || {});
+                }
+
+                // Si el navegador está en inglés, intentar cargar y aplicar las traducciones en inglés (sobrescribe labels/helps)
+                const lang = (navigator.language || navigator.userLanguage || '').toLowerCase();
+                if(lang.startsWith('en')){
+                    try{
+                        const res2 = await fetch('/static/i18n/en/essentials.json');
+                        if(res2 && res2.ok){
+                            const data2 = await res2.json();
+                            if(data2.labels) this.translations = Object.assign({}, this.translations, data2.labels);
+                            this.helpMap = Object.assign({}, this.helpMap || {}, data2.helps || {});
+                        }
+                    }catch(e){ /* ignore */ }
+                }
+            }catch(e){
+                console.error('No se pudo cargar i18n essentials', e);
+            }
+        },
+
+        // Mapa de traducciones para claves comunes de Essentials (fallback si no existe)
+        translations: {
+            'teleport': 'Teletransporte',
+            'spawn': 'Spawn',
+            'kit': 'Kit',
+            'economy': 'Economía',
+            'worth': 'Valor',
+            'currency-symbol': 'Símbolo de moneda'
+        },
+
+        translateKey(key){
+            if(this.translations && this.translations[key]) return this.translations[key];
+            // fallback: reemplazar guiones/underscores por espacios y capitalizar primera letra
+            const s = String(key).replace(/[-_.]/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2');
+            return s.charAt(0).toUpperCase() + s.slice(1);
         },
 
         async loadConfig(){
@@ -71,8 +116,21 @@ function essentialsManager(){
             if(!Array.isArray(this.config.fields)) return;
             for(const f of this.config.fields){
                 f.type = f.type || (typeof f.value === 'boolean' ? 'boolean' : (typeof f.value === 'number' ? 'number' : (typeof f.value === 'object' ? 'json' : 'string')));
-                f.help = f.help || '';
+                // help: preferir help existente, sino buscar en helpMap (i18n), sino vacío
+                f.help = f.help || (this.helpMap && (this.helpMap[f.key] || this.helpMap[f.key.replace(/\./g,'/')])) || '';
+                // etiqueta traducida para mostrar en la UI: preferir i18n, sino fallback
+                f.displayLabel = f.displayLabel || (this.translations && (this.translations[f.key] || this.translations[f.key.replace(/\./g,'/')])) || this.translateKey(f.key);
             }
+        },
+
+        getHelp(field){
+            // Si se pasa todo el campo, usar su help; o si se pasa una clave, buscar help en fields
+            if(!field) return '';
+            if(typeof field === 'string'){
+                const f = (this.config.fields || []).find(x=>x.key===field);
+                return f ? f.help || '' : '';
+            }
+            return field.help || '';
         },
 
         async saveFile(){
