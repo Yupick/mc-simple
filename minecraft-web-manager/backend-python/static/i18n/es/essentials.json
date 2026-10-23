@@ -1,0 +1,38 @@
+{
+  "labels": {
+    "spawn": "Spawn (ubicación de aparición)",
+    "teleport": "Teletransporte",
+    "teleport-cooldown": "Cooldown de teletransporte",
+    "max-teleport-distance": "Distancia máxima de teletransporte",
+    "kits": "Kits",
+    "worth": "Valor de objetos",
+    "currency-symbol": "Símbolo de moneda",
+    "economy": "Economía",
+    "allow-fly": "Permitir vuelo",
+    "motd": "Mensaje del día (MOTD)",
+    "chat": "Chat",
+    "home": "Home (casa)",
+    "homes": "Homes (casas)",
+    "spawn-protection": "Protección del spawn",
+    "enable": "Habilitar",
+    "debug": "Depuración",
+    "config.yml": "Archivo config.yml"
+  },
+  "helps": {
+    "spawn": "Define la ubicación donde los jugadores reaparecen cuando mueren o usan /spawn.",
+    "teleport": "Configuraciones relacionadas con el teletransporte entre ubicaciones.",
+    "teleport-cooldown": "Tiempo (en segundos) que debe esperar un jugador entre teletransportes.",
+    "max-teleport-distance": "Distancia máxima permitida para teletransportes.",
+    "kits": "Lista de kits disponibles para los jugadores y sus propiedades (delay, items).",
+    "worth": "Tabla de valores para objetos utilizada por el sistema económico.",
+    "currency-symbol": "Símbolo que representa la moneda del servidor (p. ej. $).",
+    "economy": "Ajustes del plugin de economía integrado con Essentials.",
+    "allow-fly": "Permite a los jugadores volar si su modo lo soporta.",
+    "motd": "Mensaje mostrado a los jugadores al conectar al servidor.",
+    "chat": "Opciones relacionadas con el chat (formatos, filtros, etc.).",
+    "home": "Configuraciones por defecto para la ubicación 'home' de los jugadores.",
+    "spawn-protection": "Área alrededor del spawn protegida contra modificaciones por jugadores.",
+    "debug": "Activa mensajes adicionales para depuración en el servidor.",
+    "config.yml": "Archivo principal de configuración de EssentialsX."
+  }
+}

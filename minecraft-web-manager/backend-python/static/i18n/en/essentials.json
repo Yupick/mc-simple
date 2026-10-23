@@ -1,0 +1,38 @@
+{
+  "labels": {
+    "spawn": "Spawn (spawn location)",
+    "teleport": "Teleport",
+    "teleport-cooldown": "Teleport cooldown",
+    "max-teleport-distance": "Maximum teleport distance",
+    "kits": "Kits",
+    "worth": "Item worth",
+    "currency-symbol": "Currency symbol",
+    "economy": "Economy",
+    "allow-fly": "Allow fly",
+    "motd": "Message of the day (MOTD)",
+    "chat": "Chat",
+    "home": "Home",
+    "homes": "Homes",
+    "spawn-protection": "Spawn protection",
+    "enable": "Enable",
+    "debug": "Debug",
+    "config.yml": "config.yml file"
+  },
+  "helps": {
+    "spawn": "Defines where players respawn when they die or use /spawn.",
+    "teleport": "Settings related to teleporting between locations.",
+    "teleport-cooldown": "Time (in seconds) a player must wait between teleports.",
+    "max-teleport-distance": "Maximum allowed distance for teleports.",
+    "kits": "List of available kits for players and their properties (delay, items).",
+    "worth": "Value table for items used by the economy system.",
+    "currency-symbol": "Symbol representing the server currency (e.g. $).",
+    "economy": "Settings for the economy plugin integrated with Essentials.",
+    "allow-fly": "Allows players to fly if their mode supports it.",
+    "motd": "Message shown to players when they connect to the server.",
+    "chat": "Options related to chat (formats, filters, etc.).",
+    "home": "Default settings for player 'home' location.",
+    "spawn-protection": "Area around spawn protected from player modifications.",
+    "debug": "Enables additional debugging messages on the server.",
+    "config.yml": "Main configuration file for EssentialsX."
+  }
+}
