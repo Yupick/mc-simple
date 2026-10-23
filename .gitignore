@@ -42,6 +42,10 @@ server/worlds/*/world_the_end/
 server/plugins/**/*.jar
 server/server.pid
 
+# Paper runtime artifacts if the server is launched from the repository root
+/cache/
+/libraries/
+
 # Backups (git large files)
 backups/*.tar.gz
 
