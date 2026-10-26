@@ -43,7 +43,7 @@
             </div>
             <div class="bg-gray-50 rounded-lg p-4">
                 <p class="text-sm text-gray-600 mb-1">Memoria</p>
-                <p x-text="formatMemory(status.memory?.used)" class="text-xl font-bold"></p>
+                <p x-text="`${formatMemory(status.memory?.used)} / ${formatMemory(status.memory?.max)}`" class="text-xl font-bold"></p>
             </div>
             <div class="bg-gray-50 rounded-lg p-4">
                 <p class="text-sm text-gray-600 mb-1">CPU</p>
@@ -80,6 +80,86 @@
             </button>
         </div>
     </div>
+
+    {% if user.role == 'admin' %}
+    <section class="bg-white rounded-lg shadow p-6 mb-6" aria-labelledby="maintenance-heading" data-maintenance-panel>
+        <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
+            <div>
+                <h3 id="maintenance-heading" class="text-xl font-bold text-gray-900">Mantenimiento</h3>
+                <p class="text-sm text-gray-600 mt-1">Actualizaciones y límites de memoria Java</p>
+            </div>
+            <button @click="checkUpdates()" :disabled="maintenanceLoading"
+                    class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50">
+                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                <span x-text="maintenanceLoading ? 'Consultando...' : 'Buscar actualizaciones'"></span>
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div>
+                <h4 class="font-semibold text-gray-900 mb-3">Paper y plugins</h4>
+                <div x-show="updateCheck" class="text-sm text-gray-700 mb-3">
+                    <p>Paper instalado: <strong x-text="`${updateCheck?.current?.version || 'N/D'} (build ${updateCheck?.current?.build || 'N/D'})`"></strong></p>
+                    <p x-text="updateCheck?.paper_update_available ? `Build nuevo disponible: ${updateCheck?.latest?.build}` : 'Paper está actualizado para esta serie.'"></p>
+                </div>
+                <div x-show="updateCheck?.plugins?.length" class="mb-4">
+                    <p class="text-sm font-medium text-gray-700 mb-2">Último release estable en Hangar</p>
+                    <ul class="divide-y divide-gray-100 border-y border-gray-100">
+                        <template x-for="plugin in (updateCheck?.plugins || [])" :key="plugin.name">
+                            <li class="flex justify-between gap-3 py-2 text-sm">
+                                <span x-text="`${plugin.name} (${plugin.installed_file})`" class="text-gray-700"></span>
+                                <span x-text="plugin.latest_version" class="font-medium text-gray-900"></span>
+                            </li>
+                        </template>
+                    </ul>
+                </div>
+                <label class="flex items-center gap-2 mb-2">
+                    <input type="checkbox" x-model="updatePaper" class="rounded">
+                    <span class="text-sm">Actualizar Paper</span>
+                </label>
+                <div x-show="updatePaper" class="mb-3">
+                    <label for="paper-version" class="block text-sm text-gray-700 mb-1">Versión de Minecraft</label>
+                    <select id="paper-version" x-model="updateVersion" class="w-full border border-gray-300 rounded px-3 py-2">
+                        <template x-for="version in (updateCheck?.versions || [])" :key="version">
+                            <option :value="version" x-text="version"></option>
+                        </template>
+                    </select>
+                </div>
+                <label class="flex items-center gap-2 mb-4">
+                    <input type="checkbox" x-model="updatePlugins" class="rounded">
+                    <span class="text-sm">Actualizar plugins soportados que estén instalados</span>
+                </label>
+                <button @click="startMaintenanceUpdate()" :disabled="maintenanceLoading || (!updatePaper && !updatePlugins)"
+                        class="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg disabled:opacity-50">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span x-text="maintenanceLoading ? 'Procesando...' : 'Actualizar seleccionados'"></span>
+                </button>
+                <p x-show="maintenanceMessage" x-text="maintenanceMessage" class="mt-3 text-sm" role="status"></p>
+            </div>
+
+            <div>
+                <h4 class="font-semibold text-gray-900 mb-3">Memoria Java</h4>
+                <p x-show="javaMemory.running" class="text-sm text-amber-700 mb-3">Detén el servidor para cambiar estos valores.</p>
+                <div class="grid grid-cols-2 gap-3">
+                    <label class="text-sm text-gray-700">Inicial (Xms)
+                        <input type="text" x-model="javaMemory.min_ram" placeholder="1G" :disabled="javaMemory.running"
+                               class="mt-1 w-full border border-gray-300 rounded px-3 py-2">
+                    </label>
+                    <label class="text-sm text-gray-700">Máxima (Xmx)
+                        <input type="text" x-model="javaMemory.max_ram" placeholder="4G" :disabled="javaMemory.running"
+                               class="mt-1 w-full border border-gray-300 rounded px-3 py-2">
+                    </label>
+                </div>
+                <button @click="saveJavaMemory()" :disabled="javaMemory.running || maintenanceLoading"
+                        class="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded-lg disabled:opacity-50">
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    Guardar memoria
+                </button>
+                <p x-show="memoryMessage" x-text="memoryMessage" class="mt-3 text-sm" role="status"></p>
+            </div>
+        </div>
+    </section>
+    {% endif %}
     
     <!-- Logs Section -->
     <div class="bg-white rounded-lg shadow p-6">

@@ -1,7 +1,10 @@
 """Servicio para control del servidor Minecraft"""
 import json
+import os
+import re
 import psutil
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Dict, Any, Optional
 from app.core.config import settings
 from app.services.bash_service import bash_service
@@ -71,6 +74,67 @@ class ServerService:
             print(f"Error leyendo versión: {e}")
         
         return {"paper": "Desconocida", "minecraft": "Desconocida", "full": "Desconocida"}
+
+    @staticmethod
+    def memory_value_to_mb(value: str) -> int:
+        match = re.fullmatch(r"([1-9][0-9]{0,3})([MG])", value)
+        if not match:
+            raise ValueError("Usa una cantidad positiva seguida de M o G, por ejemplo 1024M o 4G")
+        amount = int(match.group(1))
+        if match.group(2) == "G":
+            if amount > 1024:
+                raise ValueError("El límite máximo aceptado es 1024G")
+            return amount * 1024
+        if amount > 1048576:
+            raise ValueError("El límite máximo aceptado es 1048576M")
+        return amount
+
+    def get_java_memory(self) -> Dict[str, str]:
+        values = {"min_ram": "1G", "max_ram": "4G"}
+        config_file = self.server_path / "java-memory.conf"
+
+        if config_file.exists():
+            for line in config_file.read_text(encoding="utf-8").splitlines():
+                if not line or line.startswith("#"):
+                    continue
+                key, separator, value = line.partition("=")
+                if not separator or key not in {"MIN_RAM", "MAX_RAM"}:
+                    raise ValueError("El archivo java-memory.conf tiene una línea inválida")
+                values["min_ram" if key == "MIN_RAM" else "max_ram"] = value
+
+        min_mb = self.memory_value_to_mb(values["min_ram"])
+        max_mb = self.memory_value_to_mb(values["max_ram"])
+        if min_mb > max_mb:
+            raise ValueError("La memoria inicial no puede superar la memoria máxima")
+        return values
+
+    def set_java_memory(self, min_ram: str, max_ram: str) -> Dict[str, str]:
+        min_mb = self.memory_value_to_mb(min_ram)
+        max_mb = self.memory_value_to_mb(max_ram)
+        if min_mb > max_mb:
+            raise ValueError("La memoria inicial no puede superar la memoria máxima")
+        if self.is_running():
+            raise RuntimeError("Detén el servidor antes de cambiar la memoria Java")
+
+        self.server_path.mkdir(parents=True, exist_ok=True)
+        temporary_path = None
+        try:
+            with NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=self.server_path,
+                prefix=".java-memory.",
+                delete=False,
+            ) as temporary_file:
+                temporary_file.write(f"MIN_RAM={min_ram}\nMAX_RAM={max_ram}\n")
+                temporary_path = Path(temporary_file.name)
+            temporary_path.chmod(0o640)
+            os.replace(temporary_path, self.server_path / "java-memory.conf")
+        finally:
+            if temporary_path and temporary_path.exists():
+                temporary_path.unlink()
+
+        return {"min_ram": min_ram, "max_ram": max_ram}
     
     async def get_status(self) -> Dict[str, Any]:
         """
@@ -91,6 +155,12 @@ class ServerService:
             "players": {"online": 0, "max": 20},
             "version": self.get_version()
         }
+
+        try:
+            max_ram = self.get_java_memory()["max_ram"]
+            status["memory"]["max"] = self.memory_value_to_mb(max_ram) * 1024 * 1024
+        except (OSError, ValueError):
+            status["memory"]["max"] = 0
         
         if running and pid:
             try:

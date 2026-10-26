@@ -281,6 +281,50 @@ has_managed_plugins() {
     return 1
 }
 
+list_managed_plugin_versions() {
+    local plugins_dir=${1:-./server/plugins}
+    local namespace
+    local project
+    local plugin_name
+    local filename
+    local installed_file
+    local latest_version
+    local entry
+    local result='[]'
+
+    while IFS='|' read -r namespace project plugin_name filename; do
+        if [ -f "${plugins_dir}/${filename}" ]; then
+            installed_file=${filename}
+        elif [ -f "${plugins_dir}/${filename}.disabled" ]; then
+            installed_file="${filename}.disabled"
+        else
+            continue
+        fi
+
+        latest_version=$(curl --fail --silent --show-error --location \
+            --connect-timeout 10 --max-time 30 \
+            --header "User-Agent: ${PLUGIN_API_USER_AGENT}" \
+            "${HANGAR_API_BASE_URL}/projects/${namespace}/${project}/versions?channel=Release&limit=1" |
+            jq -er '.result[0] | select(.channel.name == "Release") | .name' 2>/dev/null) || latest_version="No disponible"
+
+        entry=$(jq -cn \
+            --arg name "$plugin_name" \
+            --arg installed_file "$installed_file" \
+            --arg latest_version "$latest_version" \
+            '{name:$name,installed_file:$installed_file,latest_version:$latest_version}') || return 1
+        result=$(jq -cn --argjson plugins "$result" --argjson entry "$entry" '$plugins + [$entry]') || return 1
+    done <<'PLUGINS'
+ViaVersion|ViaVersion|ViaVersion|ViaVersion.jar
+ViaVersion|ViaBackwards|ViaBackwards|ViaBackwards.jar
+dmulloy2|ProtocolLib|ProtocolLib|ProtocolLib.jar
+TNE|VaultUnlocked|VaultUnlocked|VaultUnlocked.jar
+GeyserMC|Geyser|Geyser|Geyser-Spigot.jar
+GeyserMC|Floodgate|Floodgate|floodgate-spigot.jar
+PLUGINS
+
+    printf '%s\n' "$result"
+}
+
 update_plugins() {
     local plugins_dir=${1:-./server/plugins}
 

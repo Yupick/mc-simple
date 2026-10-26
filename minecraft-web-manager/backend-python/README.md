@@ -233,6 +233,13 @@ http://localhost:8000/redoc      # ReDoc
 - `POST /api/server/restart` - Reiniciar
 - `GET /api/server/logs?lines=100` - Logs
 - `POST /api/server/command` - Enviar comando RCON
+- `GET /api/server/java-memory` - Leer Xms/Xmx (admin)
+- `PUT /api/server/java-memory` - Cambiar Xms/Xmx con el servidor detenido (admin)
+- `GET /api/server/maintenance/check` - Consultar builds Paper estables (admin)
+- `POST /api/server/maintenance` - Iniciar actualización Paper/plugins (admin)
+- `GET /api/server/maintenance/{job_id}` - Consultar tarea de actualización (admin)
+
+La memoria Java se guarda en `server/java-memory.conf` (`MIN_RAM=1G` y `MAX_RAM=4G`). Los cambios se aplican en el siguiente inicio. Las actualizaciones crean un backup antes de reemplazar Paper o plugins soportados.
 
 #### Mundos
 - `GET /api/worlds` - Listar mundos

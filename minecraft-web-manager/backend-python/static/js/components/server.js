@@ -5,9 +5,20 @@ function serverControl() {
         loading: false,
         logs: [],
         logsActive: false,
+        javaMemory: { min_ram: '1G', max_ram: '4G', running: false },
+        updateCheck: null,
+        updateVersion: '',
+        updatePaper: true,
+        updatePlugins: false,
+        maintenanceLoading: false,
+        maintenanceMessage: '',
+        memoryMessage: '',
         
         init() {
             this.fetchStatus();
+            if (document.querySelector('[data-maintenance-panel]')) {
+                this.fetchJavaMemory();
+            }
             
             // Escuchar actualizaciones de WebSocket
             if (window.socket) {
@@ -48,6 +59,118 @@ function serverControl() {
                 this.status = await res.json();
             } catch (e) {
                 console.error('Error fetching status:', e);
+            }
+        },
+
+        async fetchJavaMemory() {
+            try {
+                const res = await fetch('/api/server/java-memory');
+                const data = await res.json();
+                if (res.ok) this.javaMemory = data;
+            } catch (e) {
+                console.error('Error fetching Java memory:', e);
+            }
+        },
+
+        async saveJavaMemory() {
+            this.memoryMessage = '';
+            if (!/^[1-9][0-9]{0,3}[MG]$/.test(this.javaMemory.min_ram) ||
+                !/^[1-9][0-9]{0,3}[MG]$/.test(this.javaMemory.max_ram)) {
+                this.memoryMessage = 'Usa valores como 1G o 1024M.';
+                return;
+            }
+
+            this.maintenanceLoading = true;
+            try {
+                const res = await fetch('/api/server/java-memory', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        min_ram: this.javaMemory.min_ram,
+                        max_ram: this.javaMemory.max_ram
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'No se pudo guardar la memoria');
+                this.javaMemory = { ...this.javaMemory, ...data };
+                this.memoryMessage = 'Configuración de memoria guardada.';
+            } catch (e) {
+                this.memoryMessage = e.message;
+            } finally {
+                this.maintenanceLoading = false;
+            }
+        },
+
+        async checkUpdates() {
+            this.maintenanceLoading = true;
+            this.maintenanceMessage = '';
+            try {
+                const res = await fetch('/api/server/maintenance/check');
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'No se pudieron consultar las versiones');
+                this.updateCheck = data;
+                this.updateVersion = data.current.version;
+                this.maintenanceMessage = data.paper_update_available
+                    ? `Hay un build nuevo de Paper: ${data.latest.build}.`
+                    : 'Paper está actualizado para la serie instalada.';
+            } catch (e) {
+                this.maintenanceMessage = e.message;
+            } finally {
+                this.maintenanceLoading = false;
+            }
+        },
+
+        async startMaintenanceUpdate() {
+            if (!this.updatePaper && !this.updatePlugins) return;
+            const selected = [
+                this.updatePaper ? `Paper ${this.updateVersion || ''}` : '',
+                this.updatePlugins ? 'plugins soportados instalados' : ''
+            ].filter(Boolean).join(' y ');
+            if (!confirm(`Se creará un backup y se actualizará ${selected}. El servidor puede detenerse. ¿Continuar?`)) return;
+
+            this.maintenanceLoading = true;
+            this.maintenanceMessage = 'Preparando actualización...';
+            try {
+                const payload = { paper: this.updatePaper, plugins: this.updatePlugins };
+                if (this.updatePaper && this.updateVersion) payload.version = this.updateVersion;
+                const res = await fetch('/api/server/maintenance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'No se pudo iniciar la actualización');
+                this.pollMaintenanceJob(data.id);
+            } catch (e) {
+                this.maintenanceLoading = false;
+                this.maintenanceMessage = e.message;
+            }
+        },
+
+        async pollMaintenanceJob(jobId) {
+            try {
+                const res = await fetch(`/api/server/maintenance/${encodeURIComponent(jobId)}`);
+                const job = await res.json();
+                if (!res.ok) throw new Error(job.detail || 'No se pudo consultar la tarea');
+                if (job.status === 'queued' || job.status === 'running') {
+                    this.maintenanceMessage = job.status === 'running' ? 'Actualización en curso...' : 'Actualización en cola...';
+                    window.setTimeout(() => this.pollMaintenanceJob(jobId), 1500);
+                    return;
+                }
+
+                this.maintenanceLoading = false;
+                if (job.status === 'completed') {
+                    const result = job.result;
+                    this.maintenanceMessage = `Actualización completada. Backup: ${result.backup || 'no necesario'}.`;
+                    await this.fetchStatus();
+                    await this.fetchJavaMemory();
+                    await this.checkUpdates();
+                } else {
+                    this.maintenanceMessage = job.error || 'La actualización terminó con errores.';
+                }
+            } catch (e) {
+                this.maintenanceLoading = false;
+                this.maintenanceMessage = e.message;
             }
         },
         

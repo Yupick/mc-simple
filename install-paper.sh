@@ -261,8 +261,8 @@ SERVER_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
 JAR_FILE="${jar_file}"
 PID_FILE="\${SERVER_DIR}/server.pid"
 LOG_FILE="\${SERVER_DIR}/logs/latest.log"
-MIN_RAM="1G"
-MAX_RAM="4G"
+MEMORY_CONFIG="\${SERVER_DIR}/java-memory.conf"
+MEMORY_HELPER="\${SERVER_DIR}/../scripts/java-memory.sh"
 
 # Colores
 RED='\\033[0;31m'
@@ -299,12 +299,23 @@ start_server() {
     fi
     
     print_info "Iniciando servidor Minecraft Paper..."
+
+    if [ ! -r "\$MEMORY_HELPER" ]; then
+        print_error "No se encontró el validador de memoria: \$MEMORY_HELPER"
+        return 1
+    fi
+    # shellcheck source=/dev/null
+    source "\$MEMORY_HELPER"
+    if ! load_java_memory_config "\$MEMORY_CONFIG"; then
+        print_error "Configuración de memoria inválida en \$MEMORY_CONFIG"
+        return 1
+    fi
     
     # Crear directorio de logs si no existe
     mkdir -p logs
     
     # Iniciar servidor con nohup
-    nohup java -Xms\${MIN_RAM} -Xmx\${MAX_RAM} \\
+    nohup java -Xms\${JAVA_MIN_RAM} -Xmx\${JAVA_MAX_RAM} \\
         -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 \\
         -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch \\
         -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M \\
@@ -527,6 +538,9 @@ main() {
     fi
     
     mkdir -p "$SERVER_DIR"
+    if [ ! -f "${SERVER_DIR}/java-memory.conf" ]; then
+        printf 'MIN_RAM=1G\nMAX_RAM=4G\n' > "${SERVER_DIR}/java-memory.conf"
+    fi
     PLUGINS_DIR="${SERVER_DIR}/plugins"
     mkdir -p "$PLUGINS_DIR"
     

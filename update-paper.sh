@@ -63,6 +63,8 @@ detect_current_version() {
     local jar="${SERVER_DIR}/paper.jar"
     local jar_name
     local version_info
+    local version_history
+    local line
     local version
     local build
 
@@ -78,17 +80,42 @@ detect_current_version() {
     jar_name=$(basename "$jar")
     print_info "Detectando versión actual de Paper..." >&2
 
-    version_info=$(cd "$SERVER_DIR" && java -jar "$jar_name" --version 2>/dev/null | head -n 1)
-    version=$(printf '%s\n' "$version_info" | grep -oP '\d+\.\d+(\.\d+)?' | head -n 1 || true)
-    build=$(printf '%s\n' "$version_info" | grep -oP 'git-Paper-\K\d+' | head -n 1 || true)
+    version_info=$(cd "$SERVER_DIR" && java -jar "$jar_name" --version 2>&1 || true)
+
+    while IFS= read -r line; do
+        if [[ "$line" =~ (^|[^[:alnum:]_])([0-9]+\.[0-9]+(\.[0-9]+)?)-([0-9]+)-[[:xdigit:]]+([^[:alnum:]]|$) ]]; then
+            version="${BASH_REMATCH[2]}"
+            build="${BASH_REMATCH[4]}"
+            break
+        fi
+
+        if [[ "$line" =~ git-Paper-([0-9]+) ]]; then
+            build="${BASH_REMATCH[1]}"
+        fi
+        if [[ "$line" =~ \(MC:\ ([0-9]+\.[0-9]+(\.[0-9]+)?)\) ]]; then
+            version="${BASH_REMATCH[1]}"
+        fi
+        if [ -n "$version" ] && [ -n "$build" ]; then
+            break
+        fi
+    done <<< "$version_info"
 
     if [[ "$jar_name" =~ ^paper-([0-9.]+)-([0-9]+)\.jar$ ]]; then
         [ -n "$version" ] || version="${BASH_REMATCH[1]}"
         [ -n "$build" ] || build="${BASH_REMATCH[2]}"
     fi
 
+    if [ -z "$version" ] && [ -r "${SERVER_DIR}/version_history.json" ]; then
+        version_history=$(jq -r '.currentVersion // empty' "${SERVER_DIR}/version_history.json" 2>/dev/null || true)
+        if [[ "$version_history" =~ ([0-9]+\.[0-9]+(\.[0-9]+)?)-([0-9]+) ]]; then
+            version="${BASH_REMATCH[1]}"
+            [ -n "$build" ] || build="${BASH_REMATCH[3]}"
+            print_warning "Versión obtenida de version_history.json; podría no reflejar el JAR actual" >&2
+        fi
+    fi
+
     if [ -z "$version" ]; then
-        print_error "No se pudo detectar la versión Minecraft del JAR de Paper" >&2
+        print_error "No se pudo detectar la versión Minecraft del JAR de Paper desde la salida, el nombre ni version_history.json" >&2
         return 1
     fi
 
@@ -195,6 +222,7 @@ is_server_running() {
 }
 
 stop_server_for_update() {
+    local non_interactive=${1:-false}
     local pid
     local attempt
 
@@ -213,10 +241,12 @@ stop_server_for_update() {
     fi
 
     print_warning "El servidor está activo (PID ${pid})"
-    read -r -p "¿Deseas detenerlo antes de actualizar? [s/N]: " stop_confirm
-    if [[ ! "$stop_confirm" =~ ^[sS]$ ]]; then
-        print_error "Actualización cancelada: el servidor debe estar detenido"
-        return 1
+    if [[ "$non_interactive" != true ]]; then
+        read -r -p "¿Deseas detenerlo antes de actualizar? [s/N]: " stop_confirm
+        if [[ ! "$stop_confirm" =~ ^[sS]$ ]]; then
+            print_error "Actualización cancelada: el servidor debe estar detenido"
+            return 1
+        fi
     fi
 
     if [ ! -x "${SERVER_DIR}/manage-control.sh" ]; then
@@ -293,6 +323,139 @@ ask_to_start_server() {
     fi
 }
 
+web_check() {
+    local current
+    local current_version
+    local current_build
+    local build_record
+    local latest_build
+    local versions
+    local plugins
+
+    exec 3>&1
+    exec 1>&2
+
+    check_dependencies || return 1
+    check_server || return 1
+    current=$(detect_current_version) || return 1
+    IFS=: read -r current_version current_build <<< "$current"
+    build_record=$(get_latest_build "$current_version") || return 1
+    latest_build=$(printf '%s' "$build_record" | jq -er '.id') || return 1
+    versions=$(paper_api_list_versions) || return 1
+    plugins=$(list_managed_plugin_versions "$PLUGINS_DIR") || return 1
+
+    jq -cn \
+        --arg current_version "$current_version" \
+        --arg current_build "$current_build" \
+        --argjson latest_build "$latest_build" \
+        --arg versions "$versions" \
+        --argjson plugins "$plugins" \
+        '{current:{version:$current_version,build:$current_build},latest:{version:$current_version,build:$latest_build},paper_update_available:($current_build == "unknown" or (($current_build|tonumber) < $latest_build)),versions:($versions|split("\n")),plugins:$plugins}' >&3
+}
+
+web_update() {
+    local paper_requested=false
+    local plugins_requested=false
+    local requested_version=""
+    local current=""
+    local current_version=""
+    local current_build="unknown"
+    local target_version=""
+    local build_record=""
+    local latest_build=""
+    local paper_update=false
+    local plugin_update=false
+    local plugin_update_failed=false
+    local backup_target=""
+    local backup_file=""
+    local success=true
+
+    exec 3>&1
+    exec 1>&2
+
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --paper) paper_requested=true ;;
+            --plugins) plugins_requested=true ;;
+            --version)
+                shift
+                [ "$#" -gt 0 ] || { print_error "Falta el valor de --version" >&2; return 2; }
+                requested_version=$1
+                ;;
+            *) print_error "Argumento web no reconocido: $1" >&2; return 2 ;;
+        esac
+        shift
+    done
+
+    if [[ "$paper_requested" != true && "$plugins_requested" != true ]]; then
+        print_error "Solicita --paper, --plugins o ambos" >&2
+        return 2
+    fi
+
+    check_dependencies || return 1
+    check_server || return 1
+
+    if [[ "$paper_requested" == true ]]; then
+        current=$(detect_current_version) || return 1
+        IFS=: read -r current_version current_build <<< "$current"
+        target_version=${requested_version:-$current_version}
+        build_record=$(get_latest_build "$target_version") || return 1
+        latest_build=$(printf '%s' "$build_record" | jq -er '.id') || return 1
+        if [[ "$target_version" != "$current_version" || "$current_build" != "$latest_build" ]]; then
+            paper_update=true
+        fi
+    fi
+
+    PLUGIN_UPDATE_UPDATED=0
+    PLUGIN_UPDATE_SKIPPED=0
+    PLUGIN_UPDATE_UNCHANGED=0
+    PLUGIN_UPDATE_FAILURES=0
+    if [[ "$plugins_requested" == true ]] && has_managed_plugins "$PLUGINS_DIR"; then
+        plugin_update=true
+    fi
+
+    if [[ "$paper_update" == true ]]; then
+        backup_target="server"
+    elif [[ "$plugin_update" == true ]]; then
+        backup_target="server/plugins"
+    fi
+
+    if [[ -n "$backup_target" ]]; then
+        stop_server_for_update true || return 1
+        backup_file=$(create_backup "$backup_target" "pre-web-update") || return 1
+    fi
+
+    if [[ "$paper_update" == true ]]; then
+        download_paper "$target_version" "$build_record" "$SERVER_DIR" >/dev/null || return 1
+        update_management_script
+    fi
+
+    if [[ "$plugin_update" == true ]]; then
+        if ! update_plugins "$PLUGINS_DIR"; then
+            plugin_update_failed=true
+            success=false
+        fi
+    fi
+
+    jq -cn \
+        --argjson success "$success" \
+        --argjson paper_requested "$paper_requested" \
+        --argjson paper_updated "$paper_update" \
+        --arg current_version "$current_version" \
+        --arg current_build "$current_build" \
+        --arg target_version "$target_version" \
+        --argjson target_build "${latest_build:-0}" \
+        --argjson plugins_requested "$plugins_requested" \
+        --argjson plugins_updated "$PLUGIN_UPDATE_UPDATED" \
+        --argjson plugins_unchanged "$PLUGIN_UPDATE_UNCHANGED" \
+        --argjson plugins_skipped "$PLUGIN_UPDATE_SKIPPED" \
+        --argjson plugins_failed "$PLUGIN_UPDATE_FAILURES" \
+        --arg backup "$backup_file" \
+        '{success:$success,paper:{requested:$paper_requested,updated:$paper_updated,current_version:$current_version,current_build:$current_build,target_version:$target_version,target_build:$target_build},plugins:{requested:$plugins_requested,updated:$plugins_updated,unchanged:$plugins_unchanged,skipped:$plugins_skipped,failed:$plugins_failed},backup:$backup}' >&3
+
+    [[ "$plugin_update_failed" != true ]]
+}
+
 main() {
     local current
     local current_version
@@ -309,6 +472,18 @@ main() {
     local new_jar
     local update_plugins_confirm
     local plugin_update_failed=0
+
+    case "${1:-}" in
+        --web-check)
+            web_check
+            return $?
+            ;;
+        --web-update)
+            shift
+            web_update "$@"
+            return $?
+            ;;
+    esac
 
     echo ""
     echo "╔════════════════════════════════════════════════════════╗"

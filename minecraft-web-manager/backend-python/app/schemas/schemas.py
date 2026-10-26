@@ -34,10 +34,22 @@ class ServerStatus(BaseModel):
     cpu: float
     uptime: int
     players: Dict[str, int]
+    version: Optional[Dict[str, str]] = None
 
 
 class CommandRequest(BaseModel):
     command: str
+
+
+class JavaMemoryRequest(BaseModel):
+    min_ram: str = Field(..., pattern=r"^[1-9][0-9]{0,3}[MG]$")
+    max_ram: str = Field(..., pattern=r"^[1-9][0-9]{0,3}[MG]$")
+
+
+class MaintenanceUpdateRequest(BaseModel):
+    paper: bool = False
+    plugins: bool = False
+    version: Optional[str] = None
 
 
 # World schemas
